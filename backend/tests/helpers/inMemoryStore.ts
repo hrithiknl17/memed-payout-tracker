@@ -70,7 +70,7 @@ export class InMemorySettlementStore implements SettlementStore {
   setViews(id: string, views: number) {
     const s = this.submissions.get(id);
     if (!s) throw new Error('no submission');
-    s.views = views;
+    s.peakViews = Math.max(s.peakViews, views);
   }
 
   totalPaid(campaignId: string) {

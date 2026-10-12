@@ -39,7 +39,8 @@ export interface SettlementStore {
 export interface SubmissionSnapshot {
   id: string;
   campaignId: string;
-  views: number;
+  /** Highest view count ever reported. A milestone, once crossed, stays crossed. */
+  peakViews: number;
   paidAmount: number;
   cappedByBudget: boolean;
 }
@@ -97,7 +98,7 @@ export async function settleSubmission(
 
     const decision = decidePayout({
       milestones: campaign.milestones,
-      views: sub.views,
+      views: sub.peakViews,
       alreadyPaid: sub.paidAmount,
       remainingBudget: campaign.budget - campaign.spent,
     });

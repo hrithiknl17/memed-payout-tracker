@@ -14,7 +14,7 @@ function setup(budget: number, submissionCount: number) {
   const ids: string[] = [];
   for (let i = 0; i < submissionCount; i++) {
     const id = `s${i}`;
-    store.addSubmission({ id, campaignId: 'c1', views: 0, paidAmount: 0, cappedByBudget: false });
+    store.addSubmission({ id, campaignId: 'c1', peakViews: 0, paidAmount: 0, cappedByBudget: false });
     ids.push(id);
   }
   return { store, ids };
