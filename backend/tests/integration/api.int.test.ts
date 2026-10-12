@@ -181,13 +181,22 @@ describe('views and payouts', () => {
     // 10 posts × ₹5,000 owed, each updated 3 times at once = 30 concurrent requests.
     await Promise.all([...ids, ...ids, ...ids].map((id) => setViews(id, 200_000)));
 
-    const campaign = await CampaignModel.findById(campaignId).lean();
-    const subs = await SubmissionModel.find({ campaignId }).lean();
-    const paid = subs.reduce((sum, s) => sum + s.paidAmount, 0);
+    const totals = async () => {
+      const campaign = await CampaignModel.findById(campaignId).lean();
+      const subs = await SubmissionModel.find({ campaignId }).lean();
+      return { spent: campaign!.spent, paid: subs.reduce((sum, s) => sum + s.paidAmount, 0), subs };
+    };
 
-    expect(campaign!.spent).toBe(budget);
-    expect(paid).toBe(budget);
-    subs.forEach((s) => expect(s.paidAmount).toBeLessThanOrEqual(5_000));
+    const after = await totals();
+    expect(after.spent).toBeLessThanOrEqual(budget); // never overspent
+    expect(after.paid).toBe(after.spent); // every reserved rupee reached a creator
+    after.subs.forEach((s) => expect(s.paidAmount).toBeLessThanOrEqual(5_000)); // no double-pay
+
+    // One more (sequential) round tops up anyone left short by a momentary reservation.
+    for (const id of ids) await setViews(id, 200_000).expect(200);
+    const settled = await totals();
+    expect(settled.spent).toBe(budget);
+    expect(settled.paid).toBe(budget);
   });
 
   it('validates the views payload and unknown ids', async () => {

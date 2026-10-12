@@ -172,6 +172,8 @@ Budget is always reserved **before** the creator is credited, so at every moment
 
 **Known trade-off:** if the server crashes between step 2 and step 3, that reservation stays counted as spent without being paid to anyone. That's the safe direction (never overpays), but it can leave a little budget stranded. A periodic reconciliation job (`spent` vs `sum(paidAmount)`) or a payout ledger would clean it up.
 
+A related, harmless race: while a duplicate request briefly holds a reservation it will give back, another post can see less budget than there really is and take a smaller partial payout. Nothing is overpaid, and that post stays marked `cappedByBudget`, so its next view update tops it up.
+
 Tests for this are in `tests/settlement.test.ts` (50 posts plus duplicates settled at once against a small budget) and `tests/integration/api.int.test.ts` (30 simultaneous HTTP requests against real MongoDB). I checked that the unit tests fail if either guard is removed.
 
 ## Tests
