@@ -3,7 +3,7 @@
  * Run with: npm run test:integration
  * (mongodb-memory-server downloads a mongod binary on first run.)
  */
-import './setupEnv'; // must be first: config is read at import time
+import '../setupEnv'; // must be first: config is read at import time
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
