@@ -4,7 +4,7 @@ import { env } from './config/env';
 import { closeCache } from './services/cache';
 
 async function main() {
-  await mongoose.connect(env.MONGODB_URI);
+  await mongoose.connect(env.MONGODB_URI, { serverSelectionTimeoutMS: 10_000 });
   // Build indexes (incl. the unique campaign+postUrl index) before serving.
   await mongoose.syncIndexes();
   console.log('[db] connected');
