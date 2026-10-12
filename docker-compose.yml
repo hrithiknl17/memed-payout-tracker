@@ -1,0 +1,49 @@
+# One command runs the whole stack locally:  docker compose up --build
+# App: http://localhost:3000   API: http://localhost:4000
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      MONGODB_URI: mongodb://mongo:27017/memed
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me-please}
+      CORS_ORIGIN: http://localhost:3000
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "4000:4000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser calls the API directly, so this is the host-visible URL.
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
