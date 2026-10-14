@@ -34,27 +34,8 @@
   --sidebar: 248px;
   --sans: var(--font-sans), ui-sans-serif, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
   --mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* One theme for everyone: the sky-blue page is the brand, even on dark-mode systems. */
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121211;
-    --surface: #1c1c1a;
-    --surface-2: #262623;
-    --ink: #f2f0ea;
-    --muted: #b0aea6;
-    --line: #f2f0ea2e;
-    --accent: #3ddc97;
-    --accent-ink: #0e0f0d;
-    --accent-soft: #1d4a36;
-    --on-accent-muted: #0e0f0dcc;
-    --warn: #ffd23f;
-    --warn-bg: #ffd23f;
-    --bad: #ff8a80;
-    --bad-bg: #ff8a80;
-    color-scheme: dark;
-  }
 }
 
 * { box-sizing: border-box; }
