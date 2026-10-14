@@ -5,6 +5,7 @@ import { settleSubmission, type SettlementResult } from '../domain/settlement';
 import { detectSpike } from '../domain/spike';
 import { CampaignModel } from '../models/Campaign';
 import { SubmissionModel } from '../models/Submission';
+import { UserModel } from '../models/User';
 import { HttpError } from '../utils/httpError';
 import { normalisePostUrl } from '../utils/postUrl';
 import { CACHE_KEYS, cacheDel } from './cache';
@@ -137,7 +138,11 @@ export async function getCreatorEarnings(creatorId: string) {
 export async function listCampaignSubmissions(campaignId: string, brandId: string) {
   const campaign = await getOwnedCampaign(campaignId, brandId);
   const subs = await SubmissionModel.find({ campaignId: campaign._id }).sort({ paidAmount: -1, createdAt: -1 }).lean();
-  return subs.map((s) => toView(s, campaign));
+  const creators = await UserModel.find({ _id: { $in: subs.map((s) => s.creatorId) } })
+    .select('name')
+    .lean();
+  const creatorNames = new Map(creators.map((c) => [String(c._id), c.name]));
+  return subs.map((s) => ({ ...toView(s, campaign), creatorName: creatorNames.get(String(s.creatorId)) ?? 'Unknown creator' }));
 }
 
 /**

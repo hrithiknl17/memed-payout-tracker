@@ -3,6 +3,7 @@ import { env } from '../config/env';
 import { normaliseLadder, validateLadder, type Milestone } from '../domain/payout';
 import { CampaignModel, type Platform } from '../models/Campaign';
 import { SubmissionModel } from '../models/Submission';
+import { UserModel } from '../models/User';
 import { HttpError } from '../utils/httpError';
 import { CACHE_KEYS, cacheDel, cacheGet, cacheSet } from './cache';
 
@@ -21,6 +22,10 @@ export interface CampaignView {
 export interface BrandCampaignView extends CampaignView {
   submissionCount: number;
   flaggedCount: number;
+}
+
+export interface LiveCampaignView extends CampaignView {
+  brandName: string;
 }
 
 interface CampaignLike {
@@ -95,15 +100,22 @@ export async function listBrandCampaigns(brandId: string): Promise<BrandCampaign
  * Cached in Redis for a short TTL when REDIS_URL is set; the cache is cleared
  * when a campaign is created or runs out of budget.
  */
-export async function listLiveCampaigns(): Promise<CampaignView[]> {
-  const cached = await cacheGet<CampaignView[]>(CACHE_KEYS.liveCampaigns);
+export async function listLiveCampaigns(): Promise<LiveCampaignView[]> {
+  const cached = await cacheGet<LiveCampaignView[]>(CACHE_KEYS.liveCampaigns);
   if (cached) return cached;
 
   const campaigns = await CampaignModel.find({ $expr: { $lt: ['$spent', '$budget'] } })
     .sort({ createdAt: -1 })
     .limit(200)
     .lean();
-  const views = campaigns.map(toCampaignView);
+  const brands = await UserModel.find({ _id: { $in: campaigns.map((c) => c.brandId) } })
+    .select('name')
+    .lean();
+  const brandNames = new Map(brands.map((b) => [String(b._id), b.name]));
+  const views = campaigns.map((c) => ({
+    ...toCampaignView(c),
+    brandName: brandNames.get(String(c.brandId)) ?? 'Unknown brand',
+  }));
   await cacheSet(CACHE_KEYS.liveCampaigns, views, env.CAMPAIGN_CACHE_TTL_SECONDS);
   return views;
 }

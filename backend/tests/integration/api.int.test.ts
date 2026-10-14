@@ -144,6 +144,15 @@ describe('views and payouts', () => {
     const mine = await request(app).get('/api/submissions/mine').set('Authorization', `Bearer ${creator}`).expect(200);
     expect(mine.body.earnings.totalEarnings).toBe(5_000);
 
+    // Display names: creators see who runs a campaign, brands see who posted.
+    const live = await request(app).get('/api/campaigns/live').set('Authorization', `Bearer ${creator}`).expect(200);
+    expect(live.body.campaigns[0].brandName).toMatch(/^brand \d+$/);
+    const posts = await request(app)
+      .get(`/api/campaigns/${campaignId}/submissions`)
+      .set('Authorization', `Bearer ${brand}`)
+      .expect(200);
+    expect(posts.body.submissions[0].creatorName).toMatch(/^creator \d+$/);
+
     const brandView = await request(app).get('/api/campaigns/mine').set('Authorization', `Bearer ${brand}`).expect(200);
     expect(brandView.body.campaigns[0]).toMatchObject({ spent: 5_000, remaining: 5_000, submissionCount: 1 });
   });
