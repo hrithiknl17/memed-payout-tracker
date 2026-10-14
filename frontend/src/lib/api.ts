@@ -11,7 +11,8 @@ import type {
   ViewsUpdateResult,
 } from './types';
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+// Empty means same-origin: requests go to /api/* and next.config.ts proxies them to the backend.
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '');
 const TOKEN_KEY = 'memed_token';
 
 export class ApiError extends Error {
