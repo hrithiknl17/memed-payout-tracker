@@ -13,6 +13,10 @@ const schema = z.object({
   CAMPAIGN_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(30),
   SPIKE_MIN_GAIN: z.coerce.number().int().positive().default(10_000),
   SPIKE_VIEWS_PER_MINUTE: z.coerce.number().positive().default(2_000),
+  /** Proxy hops to trust for the client IP (set 1 behind Render/Heroku/Nginx). */
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+  /** Defaults to on, except under Jest. */
+  RATE_LIMIT_ENABLED: z.enum(['true', 'false']).optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -21,7 +25,12 @@ if (!parsed.success) {
   throw new Error(`Invalid environment configuration:\n${problems}`);
 }
 
-export const env = parsed.data;
+export const env = {
+  ...parsed.data,
+  RATE_LIMIT_ENABLED: parsed.data.RATE_LIMIT_ENABLED
+    ? parsed.data.RATE_LIMIT_ENABLED === 'true'
+    : parsed.data.NODE_ENV !== 'test',
+};
 
 export const corsOrigins = env.CORS_ORIGIN.split(',')
   .map((o) => o.trim())
