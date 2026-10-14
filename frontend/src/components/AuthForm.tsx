@@ -53,7 +53,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           <h1>
             Views in.
             <br />
-            Payouts out.
+            <span className="marker">Payouts out.</span>
           </h1>
           <p>Every payout is the highest milestone a post reaches, and no campaign spends past its budget.</p>
         </div>

@@ -43,7 +43,7 @@ export default function Home() {
             <h1>
               Views in.
               <br />
-              Payouts out.
+              <span className="marker">Payouts out.</span>
             </h1>
             <p className="lede">
               Brands set a budget and a milestone ladder. Creators post, views climb, payouts unlock — and a campaign
