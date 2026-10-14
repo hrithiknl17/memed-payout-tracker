@@ -20,7 +20,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { initials } from '@/lib/format';
 import type { Role, User } from '@/lib/types';
-import { PixelLogo } from './brand';
+import { Wordmark } from './brand';
 
 interface NavItem {
   href: string;
@@ -67,7 +67,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
     <div className={`app${open ? ' nav-open' : ''}`}>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="sidebar-head">
-          <PixelLogo href={home} />
+          <Wordmark href={home} />
           <button className="sidebar-close" onClick={() => setOpen(false)} aria-label="Close menu">
             <X size={22} />
           </button>
@@ -112,7 +112,7 @@ export function AppShell({ user, children }: { user: User; children: ReactNode }
 
       <div className="main">
         <header className="topbar-mobile">
-          <PixelLogo href={home} size="sm" />
+          <Wordmark href={home} size="sm" />
           <button className="menu-btn" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu size={20} />
           </button>

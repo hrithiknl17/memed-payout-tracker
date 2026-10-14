@@ -13,7 +13,7 @@ export default function NewCampaignPage() {
       <div className="page-head">
         <div>
           <h1>
-            Make something people <span className="blue">share.</span>
+            Make something people <span className="accent">share.</span>
           </h1>
           <p>Set the brief, the budget and the milestone ladder. Creators find the angle.</p>
         </div>

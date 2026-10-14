@@ -2,17 +2,21 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { count, shortCount } from '@/lib/format';
+import type { Milestone } from '@/lib/types';
 
-/** The pixel "MEMED" wordmark from the mobile app, set in a pixel font with an inked outline. */
-export function PixelLogo({ href, size = 'md' }: { href?: string; size?: 'sm' | 'md' | 'lg' }) {
-  const cls = `pixel-logo${size === 'md' ? '' : ` ${size}`}`;
+/** The meme'd wordmark: a ledger-style ₹ block followed by the name. */
+export function Wordmark({ href, size = 'md' }: { href?: string; size?: 'sm' | 'md' | 'lg' }) {
   const mark = (
-    <span className={cls} aria-label="Meme'd">
-      MEMED
+    <span className={`wordmark ${size}`} aria-label="meme'd">
+      <span className="wm-box" aria-hidden="true">₹</span>
+      <span aria-hidden="true">
+        meme<span className="wm-apos">’</span>d
+      </span>
     </span>
   );
   return href ? (
-    <Link href={href} style={{ textDecoration: 'none' }}>
+    <Link href={href} className="wordmark-link">
       {mark}
     </Link>
   ) : (
@@ -20,53 +24,22 @@ export function PixelLogo({ href, size = 'md' }: { href?: string; size?: 'sm' | 
   );
 }
 
-/** Gold coin with a lightning bolt, as used for money throughout the app. */
-export function Coin({ size = 18, tilt = 0 }: { size?: number; tilt?: number }) {
+/** Rupee sign set in the number face, placed before amounts. */
+export function Rupee({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" style={{ transform: `rotate(${tilt}deg)` }}>
-      <ellipse cx="16" cy="17.5" rx="13" ry="13" fill="#c98a07" />
-      <circle cx="16" cy="15" r="13" fill="#f7c52b" stroke="#111" strokeWidth="1.6" />
-      <circle cx="16" cy="15" r="9.5" fill="none" stroke="#d99a0b" strokeWidth="1.4" />
-      <path d="M17.6 7.5 11 16.4h4.4l-1.6 7.1 6.8-9.2h-4.5z" fill="#111" />
-    </svg>
-  );
-}
-
-/** A stack of coins for earnings cards and the wallet header. */
-export function CoinStack({ size = 64 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <ellipse cx="32" cy="58" rx="20" ry="4" fill="#f2d24a" opacity=".6" />
-      {[46, 38, 30, 22].map((y, i) => (
-        <g key={y} transform={`translate(${i % 2 ? 2 : -1} 0)`}>
-          <ellipse cx="32" cy={y + 4} rx="17" ry="6" fill="#c98a07" stroke="#111" strokeWidth="1.4" />
-          <ellipse cx="32" cy={y} rx="17" ry="6" fill="#f7c52b" stroke="#111" strokeWidth="1.4" />
-        </g>
-      ))}
-      <g transform="translate(34 4) rotate(18)">
-        <circle cx="12" cy="12" r="11" fill="#f7c52b" stroke="#111" strokeWidth="1.4" />
-        <path d="M13.4 5.5 8 12.8h3.6l-1.3 5.8 5.6-7.6h-3.7z" fill="#111" />
-      </g>
-    </svg>
-  );
-}
-
-export function CoinAmount({ value, size = 18 }: { value: string; size?: number }) {
-  return (
-    <span className="coin-amount">
-      <Coin size={size} />
-      {value}
+    <span className="rupee" style={{ fontSize: Math.round(size * 0.9) }} aria-hidden="true">
+      ₹
     </span>
   );
 }
 
-/** Campaign cover image, falling back to a branded tile when there is none or it fails to load. */
+/** Campaign cover image, falling back to a plain tile when there is none or it fails to load. */
 export function Thumb({ src, alt, mini = false }: { src?: string; alt: string; mini?: boolean }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) {
     return (
       <div className="thumb-fallback" role="img" aria-label={alt}>
-        <span className={`pixel-logo${mini ? ' sm' : ''}`}>MEMED</span>
+        <span className="rupee" style={{ fontSize: mini ? 18 : 40 }}>₹</span>
       </div>
     );
   }
@@ -75,6 +48,7 @@ export function Thumb({ src, alt, mini = false }: { src?: string; alt: string; m
   return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} />;
 }
 
+/** Ledger meter: a thick bar with tick marks at 25 / 50 / 75%. */
 export function Progress({ value, max, large = false, label }: { value: number; max: number; large?: boolean; label: string }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
@@ -87,7 +61,33 @@ export function Progress({ value, max, large = false, label }: { value: number; 
       aria-valuemax={100}
     >
       <i style={{ width: `${pct}%` }} />
+      <b style={{ left: '25%' }} aria-hidden="true" />
+      <b style={{ left: '50%' }} aria-hidden="true" />
+      <b style={{ left: '75%' }} aria-hidden="true" />
     </div>
+  );
+}
+
+/**
+ * Milestone ladder as a receipt: "10K views ........ ₹500". Rows the post has
+ * already reached are marked when `views` is given.
+ */
+export function Ladder({ milestones, views }: { milestones: Milestone[]; views?: number }) {
+  const rows = [...milestones].sort((a, b) => a.views - b.views);
+  return (
+    <ol className="ladder">
+      {rows.map((m) => {
+        const reached = views !== undefined && views >= m.views;
+        return (
+          <li key={m.views} className={reached ? 'reached' : undefined}>
+            <span className="ladder-views">{shortCount(m.views)} views</span>
+            <span className="ladder-dots" aria-hidden="true" />
+            <span className="ladder-pay">₹{count(m.payout)}</span>
+            {reached && <span className="sr-only"> (reached)</span>}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -105,35 +105,33 @@ export function PlatformIcon({ platform, size = 16 }: { platform: string; size?:
   if (platform === 'youtube') {
     return (
       <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="1.5" y="4.5" width="21" height="15" rx="4.5" fill="#ff0033" />
-        <path d="M10 8.8v6.4l5.6-3.2z" fill="#fff" />
+        <rect x="1.5" y="4.5" width="21" height="15" rx="3" fill="none" stroke="currentColor" strokeWidth="2" />
+        <path d="M10 8.8v6.4l5.6-3.2z" fill="currentColor" />
       </svg>
     );
   }
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <defs>
-        <linearGradient id="ig" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor="#feda75" />
-          <stop offset=".35" stopColor="#fa7e1e" />
-          <stop offset=".65" stopColor="#d62976" />
-          <stop offset="1" stopColor="#4f5bd5" />
-        </linearGradient>
-      </defs>
-      <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#ig)" />
-      <circle cx="12" cy="12" r="4.4" fill="none" stroke="#fff" strokeWidth="2" />
-      <circle cx="17.3" cy="6.7" r="1.3" fill="#fff" />
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="17.4" cy="6.6" r="1.3" fill="currentColor" />
     </svg>
   );
 }
 
-/** The pixel-logo folder illustration used for empty states in the app. */
-export function EmptyFolder() {
+/** Blank receipt used for empty states. */
+export function EmptyState() {
   return (
-    <div className="folder" aria-hidden="true">
-      <div>
-        <span className="pixel-logo sm">MEMED</span>
-      </div>
-    </div>
+    <svg className="empty-art" width="72" height="88" viewBox="0 0 72 88" aria-hidden="true">
+      <path
+        d="M6 4h60v76l-7.5-5-7.5 5-7.5-5-7.5 5-7.5-5-7.5 5L6 80z"
+        fill="var(--surface)"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+      <path d="M18 22h36M18 34h36M18 46h22" stroke="currentColor" strokeWidth="2.5" strokeDasharray="3 4" />
+      <path d="M44 60h10" stroke="var(--accent)" strokeWidth="4" />
+    </svg>
   );
 }

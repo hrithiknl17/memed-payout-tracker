@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, ArrowRight, ChevronRight, Info } from 'lucide-react';
-import { Coin, CoinStack, PreviewBadge } from '@/components/brand';
+import { PreviewBadge, Rupee } from '@/components/brand';
 import { api } from '@/lib/api';
 import { formatDate, rupees, shortCount } from '@/lib/format';
 import { useCreatorData, useLoad } from '@/lib/hooks';
@@ -23,15 +23,14 @@ export default function WalletPage() {
 
       {error && <p className="alert error">{error}</p>}
 
-      <div className="banner-blue" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, padding: '28px 32px', flexWrap: 'wrap' }}>
-        <CoinStack size={130} />
+      <div className="banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, padding: '28px 32px', flexWrap: 'wrap' }}>
         <div style={{ textAlign: 'right', marginLeft: 'auto' }}>
-          <p style={{ margin: 0, color: '#c9d3ff', fontSize: 18 }}>total balance</p>
+          <p style={{ margin: 0, color: 'var(--on-accent-muted)', fontSize: 18 }}>total balance</p>
           <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, margin: '4px 0 0', fontSize: 'clamp(40px, 5vw, 56px)', fontWeight: 700 }}>
-            <Coin size={44} /> {data ? rupees(data.earnings.totalEarnings) : '—'}
+            <Rupee size={44} /> {data ? rupees(data.earnings.totalEarnings) : '—'}
           </p>
           {!!data?.earnings.unpaidDueToBudget && (
-            <p style={{ margin: '6px 0 0', color: '#c9d3ff' }}>
+            <p style={{ margin: '6px 0 0', color: 'var(--on-accent-muted)' }}>
               + {rupees(data.earnings.unpaidDueToBudget)} earned but not paid (campaign budget ran out)
             </p>
           )}
@@ -78,7 +77,6 @@ export default function WalletPage() {
         {!ledger.data && !ledger.error && <div className="skeleton" style={{ height: 200 }} />}
         {ledger.data && credits.length === 0 && (
           <div className="card empty">
-            <CoinStack size={110} />
             <p>Your payout history will be shown here.</p>
           </div>
         )}
@@ -87,7 +85,7 @@ export default function WalletPage() {
             <div className="list">
               {credits.map((p) => (
                 <div className="list-row" key={p.id}>
-                  <Coin size={34} />
+                  <Rupee size={34} />
                   <div className="grow">
                     <span className="title">Payout · {p.campaignName ?? 'Campaign'}</span>
                     <span className="sub">
@@ -98,7 +96,7 @@ export default function WalletPage() {
                       {p.cappedByBudget && ' · partial, budget ran out'}
                     </span>
                   </div>
-                  <strong style={{ color: 'var(--good)', fontSize: 17 }}>+{rupees(p.amount)}</strong>
+                  <strong style={{ color: 'var(--accent)', fontSize: 17 }}>+{rupees(p.amount)}</strong>
                 </div>
               ))}
             </div>

@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { count, rupees, shortCount, toLocalInput } from '@/lib/format';
 import type { Campaign, CampaignEdit, Platform } from '@/lib/types';
-import { Coin, Thumb } from './brand';
+import { Ladder, Rupee, Thumb } from './brand';
 
 interface Row {
   views: string;
@@ -135,13 +135,8 @@ export function CampaignForm({ initial, onSaved }: { initial?: Campaign; onSaved
                   <div style={{ fontWeight: 700 }}>{rupees(initial.budget)}</div>
                 </div>
               </div>
-              <div className="list" style={{ marginTop: 14, border: '1.5px solid var(--line)', borderRadius: 16 }}>
-                {initial.milestones.map((m) => (
-                  <div className="list-row" key={m.views}>
-                    <span className="grow"><strong>{shortCount(m.views)} views</strong></span>
-                    <span className="coin-amount"><Coin /> {count(m.payout)}</span>
-                  </div>
-                ))}
+              <div style={{ marginTop: 14 }}>
+                <Ladder milestones={initial.milestones} />
               </div>
               <p className="hint" style={{ marginTop: 10 }}>
                 Budget and milestones can&apos;t change once creators may have posted against them.
@@ -204,8 +199,8 @@ export function CampaignForm({ initial, onSaved }: { initial?: Campaign; onSaved
             <h3>{name || 'Your campaign name'}</h3>
             <p className="objective">{objective || 'Objectives appear here'}</p>
             <div className="earn-btn">
-              <small>Earn upto</small>
-              <strong><Coin size={22} /> {count(maxPerPost)}</strong>
+              <small>Max per post</small>
+              <strong><Rupee size={22} /> {count(maxPerPost)}</strong>
             </div>
           </div>
         </div>

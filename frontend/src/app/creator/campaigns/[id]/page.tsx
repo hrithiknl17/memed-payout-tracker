@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowUpRight, Send, Timer } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
-import { Coin, PlatformIcon, Progress, Thumb } from '@/components/brand';
+import { Ladder, PlatformIcon, Progress, Rupee, Thumb } from '@/components/brand';
 import { NextMilestone } from '@/components/NextMilestone';
 import { SimulateViews } from '@/components/SimulateViews';
 import { SubmissionStatus } from '@/components/SubmissionStatus';
@@ -84,13 +84,8 @@ export default function CreatorCampaignPage() {
             </p>
 
             <h2 style={{ marginTop: 28, fontSize: 18 }}>Payout milestones</h2>
-            <div className="list" style={{ marginTop: 10, border: '1.5px solid var(--line)', borderRadius: 16 }}>
-              {campaign.milestones.map((m) => (
-                <div className="list-row" key={m.views}>
-                  <span className="grow"><strong>{shortCount(m.views)} views</strong></span>
-                  <span className="coin-amount"><Coin /> {count(m.payout)}</span>
-                </div>
-              ))}
+            <div style={{ marginTop: 10 }}>
+              <Ladder milestones={campaign.milestones} />
             </div>
             <p className="hint" style={{ marginTop: 10 }}>
               You earn the highest milestone your post reaches, not the sum of every step. Payouts stop once the budget is fully distributed.
@@ -101,11 +96,11 @@ export default function CreatorCampaignPage() {
         <aside style={{ display: 'grid', gap: 20 }}>
           <div className="card card-pad" style={{ display: 'grid', gap: 14 }}>
             <div className="earn-btn" style={{ marginTop: 0 }}>
-              <small>Earn upto</small>
-              <strong><Coin size={22} /> {count(topPayout(campaign))}</strong>
+              <small>Max per post</small>
+              <strong><Rupee size={22} /> {count(topPayout(campaign))}</strong>
             </div>
             <div className="distributed">
-              <Coin size={16} />
+              <Rupee size={16} />
               <strong>{shortCount(campaign.spent)} of {shortCount(campaign.budget)}</strong>
               <span>distributed to creators</span>
             </div>
@@ -148,7 +143,7 @@ export default function CreatorCampaignPage() {
                       <a className="url" href={s.postUrl} target="_blank" rel="noreferrer">
                         {s.postUrl.replace(/^https:\/\//, '')} <ArrowUpRight size={12} aria-hidden="true" />
                       </a>
-                      <strong style={{ color: 'var(--good)' }}>{rupees(s.paidAmount)}</strong>
+                      <strong style={{ color: 'var(--accent)' }}>{rupees(s.paidAmount)}</strong>
                     </div>
                     <div className="pills"><span className="pill">{count(s.views)} views</span><SubmissionStatus s={s} /></div>
                     {s.review !== 'rejected' && <NextMilestone milestones={campaign.milestones} views={s.peakViews} />}

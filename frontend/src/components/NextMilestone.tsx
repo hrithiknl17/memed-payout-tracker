@@ -1,4 +1,4 @@
-import { Coin } from '@/components/brand';
+import { Rupee } from '@/components/brand';
 import { count, nextMilestone, shortCount } from '@/lib/format';
 import type { Milestone } from '@/lib/types';
 
@@ -8,7 +8,7 @@ export function NextMilestone({ milestones, views }: { milestones: Milestone[]; 
   if (!next) {
     return (
       <p className="next-milestone done">
-        <Coin size={16} /> Top milestone reached. This post has earned the most it can.
+        <Rupee size={16} /> Top milestone reached. This post has earned the most it can.
       </p>
     );
   }
@@ -16,7 +16,7 @@ export function NextMilestone({ milestones, views }: { milestones: Milestone[]; 
     <div className="next-milestone">
       <p>
         <strong>{shortCount(next.viewsToGo)} more views</strong> to unlock{' '}
-        <span className="coin-amount"><Coin size={15} /> +{count(next.extra)}</span>
+        <span className="coin-amount"><Rupee size={15} /> +{count(next.extra)}</span>
         <span className="muted"> at {shortCount(next.views)}</span>
       </p>
       <div

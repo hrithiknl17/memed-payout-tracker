@@ -1,4 +1,4 @@
-import { Coin } from '@/components/brand';
+import { Rupee } from '@/components/brand';
 import { count, rupees, shortCount } from '@/lib/format';
 import type { CampaignAnalytics } from '@/lib/types';
 
@@ -47,7 +47,8 @@ export function SpendChart({
   const area = `${path} L ${x(end)} ${y(0)} L ${x(start)} ${y(0)} Z`;
 
   const ticks = [0, 0.5, 1].map((f) => Math.round(yMax * f));
-  const xTicks = [start, start + (end - start) / 2, end];
+  // A middle date label only helps when the range spans more than a couple of days.
+  const xTicks = end - start > 2 * DAY ? [start, start + (end - start) / 2, end] : [start, end];
 
   return (
     <figure className="chart">
@@ -72,7 +73,7 @@ export function SpendChart({
           </circle>
         ))}
         {xTicks.map((t, i) => (
-          <text key={i} x={x(t)} y={H - 8} textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'} className="chart-label">
+          <text key={i} x={x(t)} y={H - 8} textAnchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'} className="chart-label">
             {dayLabel(t)}
           </text>
         ))}
@@ -92,7 +93,7 @@ export function MilestoneFunnel({ analytics }: { analytics: CampaignAnalytics })
         <div className="funnel-row" key={m.views}>
           <div className="funnel-head">
             <strong>{shortCount(m.views)} views</strong>
-            <span className="coin-amount"><Coin size={14} /> {count(m.payout)}</span>
+            <span className="coin-amount"><Rupee size={14} /> {count(m.payout)}</span>
           </div>
           <div className="funnel-bar" aria-hidden="true">
             <span style={{ width: `${(m.reached / posts) * 100}%` }} />

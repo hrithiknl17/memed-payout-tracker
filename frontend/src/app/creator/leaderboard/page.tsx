@@ -2,7 +2,7 @@
 
 import { ArrowRight, Trophy } from 'lucide-react';
 import Link from 'next/link';
-import { Coin, PlatformIcon } from '@/components/brand';
+import { PlatformIcon, Rupee } from '@/components/brand';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { initials, shortCount } from '@/lib/format';
@@ -18,7 +18,7 @@ function Podium({ entry, place }: { entry: LeaderboardEntry; place: 0 | 1 | 2 })
       <span className={`medal ${MEDAL[place]}`}>#{place + 1}</span>
       <strong>{entry.name}</strong>
       <span className="coin-amount small">
-        <Coin size={16} /> {shortCount(entry.earnings)}
+        <Rupee size={16} /> {shortCount(entry.earnings)}
         {entry.platforms.map((p) => <PlatformIcon key={p} platform={p} size={16} />)}
       </span>
     </div>
@@ -33,7 +33,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="page">
-      <div className="banner-blue" style={{ padding: '28px 30px' }}>
+      <div className="banner" style={{ padding: '28px 30px' }}>
         <h1 style={{ fontSize: 22, textAlign: 'center' }}>All Time Leaderboard</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 22 }}>
           <span className="avatar lg" aria-hidden="true">{initials(user?.name ?? '?').charAt(0)}</span>
@@ -46,7 +46,7 @@ export default function LeaderboardPage() {
             ['Platforms', meEntry ? String(meEntry.platforms.length) : '--'],
           ].map(([label, value], i) => (
             <div key={label} style={{ padding: '6px 10px', borderLeft: i ? '1px solid #ffffff55' : 0 }}>
-              <div style={{ color: '#c9d3ff' }}>{label}</div>
+              <div style={{ color: 'var(--on-accent-muted)' }}>{label}</div>
               <div style={{ fontSize: 26, fontWeight: 700 }}>{value}</div>
             </div>
           ))}
@@ -58,7 +58,7 @@ export default function LeaderboardPage() {
 
       {data && data.creators.length === 0 && (
         <div className="card empty section">
-          <Trophy size={40} color="var(--cobalt)" aria-hidden="true" />
+          <Trophy size={40} color="var(--accent)" aria-hidden="true" />
           <h3>No payouts yet</h3>
           <p>The leaderboard fills up as creators earn from campaigns.</p>
         </div>
@@ -73,13 +73,13 @@ export default function LeaderboardPage() {
       )}
 
       <div className="card card-pad section" style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', background: 'var(--cream-2)', boxShadow: 'none', borderColor: 'var(--line)' }}>
-        <Trophy size={40} color="var(--cobalt)" aria-hidden="true" />
+        <Trophy size={40} color="var(--accent)" aria-hidden="true" />
         <div style={{ flex: 1, minWidth: 220 }}>
           <strong style={{ fontSize: 18 }}>Participate. Earn. Get featured!</strong>
           <p className="muted" style={{ margin: '4px 0 0' }}>Rankings are based on what creators have actually been paid.</p>
         </div>
         <Link href="/creator" className="btn btn-soft">
-          Explore Challenges <ArrowRight size={17} />
+          Browse campaigns <ArrowRight size={17} />
         </Link>
       </div>
 
@@ -89,7 +89,7 @@ export default function LeaderboardPage() {
             <div className={`rank-row${c.creatorId === user?.id ? ' me' : ''}`} key={c.creatorId}>
               <strong>#{c.rank}</strong>
               <span>{c.name}</span>
-              <span className="coin-amount"><Coin /> {shortCount(c.earnings)}</span>
+              <span className="coin-amount"><Rupee /> {shortCount(c.earnings)}</span>
               <span className="platforms" style={{ display: 'flex', gap: 4 }}>
                 {c.platforms.map((p) => <PlatformIcon key={p} platform={p} size={20} />)}
               </span>

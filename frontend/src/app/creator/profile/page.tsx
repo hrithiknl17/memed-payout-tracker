@@ -2,7 +2,7 @@
 
 import { Mail, PencilLine, Plus, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { Coin, PlatformIcon, PreviewBadge } from '@/components/brand';
+import { PlatformIcon, PreviewBadge, Rupee } from '@/components/brand';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatDate, initials, platformLabel } from '@/lib/format';
@@ -94,7 +94,7 @@ export default function ProfilePage() {
       {msg && <p className={`alert ${msg.ok ? 'success' : 'error'}`} role="status">{msg.text}</p>}
 
       <button className="btn btn-ghost btn-block" style={{ marginTop: 24, padding: 18, fontSize: 17 }} disabled>
-        <Coin size={22} /> Refer &amp; Earn <PreviewBadge />
+        <Rupee size={22} /> Refer &amp; Earn <PreviewBadge />
       </button>
 
       <section className="section">

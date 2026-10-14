@@ -7,7 +7,7 @@ import type { BrandCampaign } from '@/lib/types';
 import { PlatformIcon, Progress, Thumb } from './brand';
 
 export function StatusPill({ status }: { status: BrandCampaign['status'] }) {
-  const cls = status === 'live' ? 'good' : status === 'ended' ? '' : 'warn';
+  const cls = status === 'live' ? 'blue' : status === 'ended' ? '' : 'warn';
   return <span className={`pill ${cls}`}>{statusLabel({ status })}</span>;
 }
 
@@ -60,7 +60,7 @@ export function CampaignTable({ campaigns }: { campaigns: BrandCampaign[] }) {
                 <StatusPill status={c.status} />
               </td>
               <td data-label="Budget distributed" style={{ minWidth: 220 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 6, fontSize: 13 }}>
+                <div className="mono" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 6, fontSize: 13 }}>
                   <span>
                     <strong>{shortCount(c.spent)}</strong> <span className="muted">of {shortCount(c.budget)}</span>
                   </span>

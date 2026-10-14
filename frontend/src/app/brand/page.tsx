@@ -3,7 +3,7 @@
 import { ArrowRight, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { CampaignTable } from '@/components/CampaignTable';
-import { Coin, CoinStack, EmptyFolder } from '@/components/brand';
+import { EmptyState, Rupee } from '@/components/brand';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { count, greeting } from '@/lib/format';
@@ -24,7 +24,7 @@ export default function BrandDashboard() {
       <div className="page-head">
         <div>
           <h1>
-            {greeting()}, <span className="blue">{user?.name}</span>
+            {greeting()}, <span className="accent">{user?.name}</span>
           </h1>
           <p>Budget goes out as creators hit milestones. Here&apos;s where it stands.</p>
         </div>
@@ -39,17 +39,16 @@ export default function BrandDashboard() {
 
       <div className="grid-4">
         <div className="card stat-card">
-          <div className="value"><Coin size={22} /> {count(totals.budget)}</div>
+          <div className="value"><Rupee size={22} /> {count(totals.budget)}</div>
           <div className="label">Total budget · {campaigns.length} campaign{campaigns.length === 1 ? '' : 's'}</div>
         </div>
-        <div className="card stat-card blue">
-          <div className="value"><Coin size={22} /> {count(totals.spent)}</div>
+        <div className="card stat-card accent">
+          <div className="value"><Rupee size={22} /> {count(totals.spent)}</div>
           <div className="label">Distributed to creators</div>
         </div>
         <div className="card stat-card">
-          <div className="value"><Coin size={22} /> {count(totals.budget - totals.spent)}</div>
+          <div className="value"><Rupee size={22} /> {count(totals.budget - totals.spent)}</div>
           <div className="label">Budget remaining</div>
-          <div className="art"><CoinStack size={56} /></div>
         </div>
         <div className="card stat-card">
           <div className="value">{live}</div>
@@ -72,9 +71,9 @@ export default function BrandDashboard() {
         {!data && !error && <div className="skeleton" style={{ height: 260 }} />}
         {data && campaigns.length === 0 && (
           <div className="card empty">
-            <EmptyFolder />
+            <EmptyState />
             <h3>
-              Launch your first <span className="blue">campaign</span>
+              Launch your first <span className="accent">campaign</span>
             </h3>
             <p>Set a budget and a milestone ladder, and creators start posting.</p>
             <Link href="/brand/campaigns/new" className="btn btn-primary" style={{ marginTop: 10 }}>

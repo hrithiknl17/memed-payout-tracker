@@ -2,9 +2,9 @@ import { Timer } from 'lucide-react';
 import Link from 'next/link';
 import { count, deadlineLabel, platformTag, shortCount, statusLabel, topPayout } from '@/lib/format';
 import type { Campaign } from '@/lib/types';
-import { Coin, PlatformIcon, Progress, Thumb } from './brand';
+import { PlatformIcon, Progress, Rupee, Thumb } from './brand';
 
-/** The campaign card from the app's home feed: cover, platform, objective, distributed bar, "Earn upto". */
+/** The campaign card from the app's home feed: cover, platform, objective, distributed bar, "Max per post". */
 export function CampaignCard({ campaign, href, brandName }: { campaign: Campaign; href: string; brandName?: string }) {
   const ended = campaign.status !== 'live';
   const deadline = deadlineLabel(campaign.endsAt);
@@ -35,7 +35,7 @@ export function CampaignCard({ campaign, href, brandName }: { campaign: Campaign
         {!ended && (
           <>
             <div className="distributed">
-              <Coin size={16} />
+              <Rupee size={16} />
               <strong>
                 {shortCount(campaign.spent)} of {shortCount(campaign.budget)}
               </strong>
@@ -45,9 +45,9 @@ export function CampaignCard({ campaign, href, brandName }: { campaign: Campaign
           </>
         )}
         <div className="earn-btn">
-          <small>Earn upto</small>
+          <small>Max per post</small>
           <strong>
-            <Coin size={22} /> {count(topPayout(campaign))}
+            <Rupee size={22} /> {count(topPayout(campaign))}
           </strong>
         </div>
       </div>

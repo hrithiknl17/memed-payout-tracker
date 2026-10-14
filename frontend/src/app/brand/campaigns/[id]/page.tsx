@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowUpRight, PencilLine, Timer, Users } from 'lucide-react'
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { StatusPill } from '@/components/CampaignTable';
-import { Coin, PlatformIcon, Progress, Thumb } from '@/components/brand';
+import { Ladder, PlatformIcon, Progress, Rupee, Thumb } from '@/components/brand';
 import { MilestoneFunnel, SpendChart } from '@/components/CampaignCharts';
 import { ReviewActions } from '@/components/ReviewActions';
 import { SubmissionStatus } from '@/components/SubmissionStatus';
@@ -43,8 +43,8 @@ export default function BrandCampaignPage() {
     <div className="page">
       <Link href="/brand/campaigns" className="back"><ArrowLeft size={16} /> All campaigns</Link>
 
-      <div className="card" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 340px) minmax(0, 1fr)', overflow: 'hidden' }}>
-        <div className="thumb" style={{ borderBottom: 0, borderRight: '2px solid var(--ink)', aspectRatio: 'auto', minHeight: 200 }}>
+      <div className="card campaign-hero">
+        <div className="thumb">
           <Thumb src={campaign.thumbnailUrl} alt={`${campaign.name} cover`} />
         </div>
         <div className="card-pad" style={{ display: 'grid', gap: 12, alignContent: 'center' }}>
@@ -67,15 +67,15 @@ export default function BrandCampaignPage() {
 
       <div className="grid-4 section" style={{ marginTop: 24 }}>
         <div className="card stat-card">
-          <div className="value"><Coin size={22} /> {count(campaign.budget)}</div>
+          <div className="value"><Rupee size={22} /> {count(campaign.budget)}</div>
           <div className="label">Total budget</div>
         </div>
-        <div className="card stat-card blue">
-          <div className="value"><Coin size={22} /> {count(campaign.spent)}</div>
+        <div className="card stat-card accent">
+          <div className="value"><Rupee size={22} /> {count(campaign.spent)}</div>
           <div className="label">Distributed · {pct}%</div>
         </div>
         <div className="card stat-card">
-          <div className="value"><Coin size={22} /> {count(campaign.remaining)}</div>
+          <div className="value"><Rupee size={22} /> {count(campaign.remaining)}</div>
           <div className="label">Budget remaining</div>
         </div>
         <div className="card stat-card">
@@ -117,7 +117,7 @@ export default function BrandCampaignPage() {
           </div>
           {submissions.length === 0 ? (
             <div className="card empty">
-              <Users size={34} color="var(--cobalt)" aria-hidden="true" />
+              <Users size={34} color="var(--accent)" aria-hidden="true" />
               <h3>No posts yet</h3>
               <p>Creator posts show up here as soon as they join.</p>
             </div>
@@ -151,7 +151,7 @@ export default function BrandCampaignPage() {
                         <div className="small muted">{timeAgo(s.viewsUpdatedAt)}</div>
                       </td>
                       <td className="num" data-label="Paid">
-                        <strong style={{ color: 'var(--good)' }}>{rupees(s.paidAmount)}</strong>
+                        <strong style={{ color: 'var(--accent)' }}>{rupees(s.paidAmount)}</strong>
                       </td>
                       <td data-label="Notes">
                         <SubmissionStatus s={s} />
@@ -170,21 +170,13 @@ export default function BrandCampaignPage() {
         <aside className="card card-pad" style={{ display: 'grid', gap: 14 }}>
           <h2 style={{ fontSize: 19 }}>Budget &amp; milestones</h2>
           <div className="distributed">
-            <Coin size={16} />
+            <Rupee size={16} />
             <strong>{shortCount(campaign.spent)} of {shortCount(campaign.budget)}</strong>
             <span>distributed</span>
           </div>
           <Progress value={campaign.spent} max={campaign.budget} large label="Budget distributed" />
           <p className="hint">{rupees(campaign.remaining)} remaining. Payouts stop when it reaches zero.</p>
-          <div className="list" style={{ border: '1.5px solid var(--line)', borderRadius: 16 }}>
-            {campaign.milestones.map((m, i) => (
-              <div className="list-row" key={m.views}>
-                <span className="milestone-num" style={{ padding: 0 }}>{String(i + 1).padStart(2, '0')}</span>
-                <span className="grow"><strong>{shortCount(m.views)} views</strong></span>
-                <span className="coin-amount"><Coin /> {count(m.payout)}</span>
-              </div>
-            ))}
-          </div>
+          <Ladder milestones={campaign.milestones} />
           <p className="hint">Each post earns its highest milestone reached, not the sum.</p>
         </aside>
       </div>

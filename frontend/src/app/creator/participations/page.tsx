@@ -3,7 +3,7 @@
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { EmptyFolder, Thumb } from '@/components/brand';
+import { EmptyState, Thumb } from '@/components/brand';
 import { NextMilestone } from '@/components/NextMilestone';
 import { SimulateViews } from '@/components/SimulateViews';
 import { SubmissionStatus } from '@/components/SubmissionStatus';
@@ -44,14 +44,14 @@ export default function ParticipationsPage() {
 
         {data && rows.length === 0 && (
           <div className="empty">
-            <EmptyFolder />
+            <EmptyState />
             <h3>
-              You have no {tab} <span className="blue">submissions</span> yet
+              You have no {tab} <span className="accent">submissions</span> yet
             </h3>
-            <p>All your attempted challenges will show here</p>
+            <p>Posts you submit to campaigns show up here</p>
             {tab === 'active' && (
               <Link href="/creator" className="btn btn-primary" style={{ marginTop: 10 }}>
-                Explore Challenges <ArrowRight size={17} />
+                Browse campaigns <ArrowRight size={17} />
               </Link>
             )}
           </div>
@@ -80,11 +80,11 @@ export default function ParticipationsPage() {
                       {c && s.review !== 'rejected' && <NextMilestone milestones={c.milestones} views={s.peakViews} />}
                     </div>
                     <div style={{ minWidth: 100 }}>
-                      <strong>{count(s.views)}</strong>
+                      <strong className="mono">{count(s.views)}</strong>
                       <span className="sub">views · {timeAgo(s.viewsUpdatedAt)}</span>
                     </div>
                     <div style={{ minWidth: 100 }}>
-                      <strong style={{ color: 'var(--good)' }}>{rupees(s.paidAmount)}</strong>
+                      <strong className="mono" style={{ color: 'var(--accent)' }}>{rupees(s.paidAmount)}</strong>
                       <span className="sub">{s.entitledAmount > s.paidAmount ? `of ${rupees(s.entitledAmount)} earned` : 'earned'}</span>
                     </div>
                     <div style={{ width: 250, maxWidth: '100%' }}>

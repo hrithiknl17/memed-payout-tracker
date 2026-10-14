@@ -4,7 +4,7 @@ import { Crown } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { CampaignCard } from '@/components/CampaignCard';
-import { Coin, CoinStack } from '@/components/brand';
+import { Rupee } from '@/components/brand';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { count, greeting, rupees, shortCount, topPayout } from '@/lib/format';
@@ -36,13 +36,13 @@ export default function CreatorHome() {
       <div className="page-head">
         <div>
           <h1>
-            {greeting()}, <span className="blue">{firstName}</span>
+            {greeting()}, <span className="accent">{firstName}</span>
           </h1>
-          <p>You slay, we pay. Pick a campaign, post, and earn as your views climb.</p>
+          <p>Pick a campaign, post, and get paid as your views cross milestones.</p>
         </div>
         <div className="head-actions">
           <Link href="/creator/leaderboard" className="btn btn-ghost">
-            <Crown size={18} color="#e7a611" /> Leaderboard
+            <Crown size={18} color="var(--accent)" /> Leaderboard
           </Link>
         </div>
       </div>
@@ -52,7 +52,7 @@ export default function CreatorHome() {
       <div className="grid-2">
         <div className="card stat-card">
           <div className="value">
-            <Coin size={24} /> {data ? count(data.earnings.totalEarnings) : '—'}
+            <Rupee size={24} /> {data ? count(data.earnings.totalEarnings) : '—'}
           </div>
           <div className="label">Lifetime earning</div>
           {!!data?.earnings.unpaidDueToBudget && (
@@ -60,14 +60,12 @@ export default function CreatorHome() {
               {rupees(data.earnings.unpaidDueToBudget)} unpaid · budget out
             </span>
           )}
-          <div className="art"><CoinStack size={76} /></div>
         </div>
         <div className="card stat-card">
           <div className="value">
-            <Coin size={24} /> {board.data ? shortCount(board.data.totalDisbursed) : '—'}
+            <Rupee size={24} /> {board.data ? shortCount(board.data.totalDisbursed) : '—'}
           </div>
           <div className="label">Total disbursed</div>
-          <div className="art"><Coin size={60} tilt={-14} /></div>
         </div>
       </div>
 
