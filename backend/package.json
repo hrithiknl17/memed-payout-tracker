@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "seed": "tsx src/scripts/seed.ts",
     "test": "jest --testPathIgnorePatterns=integration",
     "test:integration": "jest tests/integration --runInBand",
     "test:all": "jest --runInBand"
