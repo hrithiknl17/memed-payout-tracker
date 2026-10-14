@@ -94,7 +94,7 @@ export async function createSubmission(
   const postUrl = normalisePostUrl(input.postUrl, campaign.platform);
   if (!postUrl) {
     throw HttpError.badRequest(
-      `That doesn't look like a ${campaign.platform === 'instagram' ? 'Instagram' : 'YouTube'} post link`,
+      `That doesn't look like ${campaign.platform === 'instagram' ? 'an Instagram' : 'a YouTube'} post link`,
     );
   }
 
