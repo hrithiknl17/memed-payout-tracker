@@ -2,16 +2,15 @@
 
 import { AlertTriangle, ArrowRight, ChevronRight, Info } from 'lucide-react';
 import { Coin, CoinStack, PreviewBadge } from '@/components/brand';
-import { formatDate, rupees } from '@/lib/format';
-import { useCreatorData } from '@/lib/hooks';
+import { api } from '@/lib/api';
+import { formatDate, rupees, shortCount } from '@/lib/format';
+import { useCreatorData, useLoad } from '@/lib/hooks';
 
 export default function WalletPage() {
   const { data, error } = useCreatorData();
-
-  // Every post that has been credited money, newest first. Real data from the payout engine.
-  const credits = (data?.submissions ?? [])
-    .filter((s) => s.paidAmount > 0)
-    .sort((a, b) => new Date(b.viewsUpdatedAt).getTime() - new Date(a.viewsUpdatedAt).getTime());
+  // The payout ledger: one row per credit, newest first.
+  const ledger = useLoad(() => api.myPayouts());
+  const credits = ledger.data?.payouts ?? [];
 
   return (
     <div className="page">
@@ -75,8 +74,9 @@ export default function WalletPage() {
         <div className="section-head">
           <h2>Transactions history</h2>
         </div>
-        {!data && !error && <div className="skeleton" style={{ height: 200 }} />}
-        {data && credits.length === 0 && (
+        {ledger.error && <p className="alert error">{ledger.error}</p>}
+        {!ledger.data && !ledger.error && <div className="skeleton" style={{ height: 200 }} />}
+        {ledger.data && credits.length === 0 && (
           <div className="card empty">
             <CoinStack size={110} />
             <p>Your payout history will be shown here.</p>
@@ -85,19 +85,25 @@ export default function WalletPage() {
         {credits.length > 0 && (
           <div className="card">
             <div className="list">
-              {credits.map((s) => (
-                <div className="list-row" key={s.id}>
+              {credits.map((p) => (
+                <div className="list-row" key={p.id}>
                   <Coin size={34} />
                   <div className="grow">
-                    <span className="title">Payout · {s.campaignName ?? 'Campaign'}</span>
-                    <span className="sub">Last credited {formatDate(s.viewsUpdatedAt)} · {s.views.toLocaleString('en-IN')} views</span>
+                    <span className="title">Payout · {p.campaignName ?? 'Campaign'}</span>
+                    <span className="sub">
+                      {formatDate(p.createdAt)} ·{' '}
+                      {p.milestoneViews > 0 ? `${shortCount(p.milestoneViews)} milestone` : 'milestone'} reached at{' '}
+                      {p.views.toLocaleString('en-IN')} views
+                      {p.reason === 'review-approved' && ' · released after brand review'}
+                      {p.cappedByBudget && ' · partial, budget ran out'}
+                    </span>
                   </div>
-                  <strong style={{ color: 'var(--good)', fontSize: 17 }}>+{rupees(s.paidAmount)}</strong>
+                  <strong style={{ color: 'var(--good)', fontSize: 17 }}>+{rupees(p.amount)}</strong>
                 </div>
               ))}
             </div>
             <p className="hint" style={{ display: 'flex', gap: 6, padding: '12px 20px', borderTop: '1px solid var(--line)' }}>
-              <Info size={15} aria-hidden="true" /> One row per post, showing its total credited so far.
+              <Info size={15} aria-hidden="true" /> One row per credit. A post that climbs milestones gets a new row for each top-up.
             </p>
           </div>
         )}

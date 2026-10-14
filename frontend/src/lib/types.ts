@@ -46,6 +46,8 @@ export interface Campaign {
 export interface BrandCampaign extends Campaign {
   submissionCount: number;
   flaggedCount: number;
+  /** Spiked posts waiting for the brand to approve or reject. */
+  pendingReviewCount: number;
 }
 
 export interface LiveCampaign extends Campaign {
@@ -68,8 +70,46 @@ export interface Submission {
   cappedByBudget: boolean;
   flagged: boolean;
   flagReason?: string;
+  /** Brand review of a view spike. Payouts are held while `pending` or `rejected`. */
+  review: ReviewState;
   viewsUpdatedAt: string;
   createdAt: string;
+}
+
+export type ReviewState = 'none' | 'pending' | 'approved' | 'rejected';
+
+/** One credit in the payout ledger. */
+export interface PayoutEntry {
+  id: string;
+  submissionId: string;
+  campaignId: string;
+  campaignName?: string;
+  amount: number;
+  views: number;
+  /** Threshold of the highest milestone reached when this was paid (0 if none). */
+  milestoneViews: number;
+  totalPaid: number;
+  cappedByBudget: boolean;
+  reason: 'views' | 'review-approved';
+  createdAt: string;
+}
+
+export interface CampaignAnalytics {
+  spendByDay: { date: string; amount: number; cumulative: number; payouts: number }[];
+  milestones: { views: number; payout: number; reached: number; topTier: number }[];
+  posts: number;
+  totalViews: number;
+  belowFirstMilestone: number;
+  held: { posts: number; owed: number };
+}
+
+export interface SettlementResult {
+  paidNow: number;
+  totalPaid: number;
+  entitled: number;
+  cappedByBudget: boolean;
+  /** Nothing was paid because the post is held for the brand's review. */
+  held: boolean;
 }
 
 export interface Earnings {
@@ -80,7 +120,7 @@ export interface Earnings {
 
 export interface ViewsUpdateResult {
   submission: Submission;
-  payout: { paidNow: number; totalPaid: number; entitled: number; cappedByBudget: boolean };
+  payout: SettlementResult;
   spikeDetected: boolean;
 }
 

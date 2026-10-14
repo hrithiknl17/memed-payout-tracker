@@ -70,10 +70,16 @@ export function CampaignTable({ campaigns }: { campaigns: BrandCampaign[] }) {
               </td>
               <td className="num" data-label="Posts">
                 <strong>{c.submissionCount}</strong>
-                {c.flaggedCount > 0 && (
-                  <div className="small" style={{ color: 'var(--bad)' }}>
-                    <Flag size={11} aria-hidden="true" /> {c.flaggedCount} flagged
+                {c.pendingReviewCount > 0 ? (
+                  <div className="small" style={{ color: 'var(--bad)', fontWeight: 600 }}>
+                    <Flag size={11} aria-hidden="true" /> {c.pendingReviewCount} to review
                   </div>
+                ) : (
+                  c.flaggedCount > 0 && (
+                    <div className="small muted">
+                      <Flag size={11} aria-hidden="true" /> {c.flaggedCount} flagged
+                    </div>
+                  )
                 )}
               </td>
             </tr>

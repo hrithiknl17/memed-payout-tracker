@@ -1,13 +1,16 @@
 import type {
   BrandCampaign,
   Campaign,
+  CampaignAnalytics,
   CampaignEdit,
   CampaignInput,
   Earnings,
   Leaderboard,
   LiveCampaign,
+  PayoutEntry,
   Profile,
   Role,
+  SettlementResult,
   SocialAccount,
   Submission,
   User,
@@ -84,11 +87,18 @@ export const api = {
   liveCampaigns: () => request<{ campaigns: LiveCampaign[] }>('/api/campaigns/live'),
   endedCampaigns: () => request<{ campaigns: LiveCampaign[] }>('/api/campaigns/ended'),
   campaignSubmissions: (id: string) => request<{ submissions: Submission[] }>(`/api/campaigns/${id}/submissions`),
+  campaignAnalytics: (id: string) => request<{ analytics: CampaignAnalytics }>(`/api/campaigns/${id}/analytics`),
+  reviewSubmission: (campaignId: string, submissionId: string, decision: 'approve' | 'reject') =>
+    request<{ submission: Submission; payout: SettlementResult | null }>(
+      `/api/campaigns/${campaignId}/submissions/${submissionId}/review`,
+      { method: 'POST', body: json({ decision }) },
+    ),
   leaderboard: () => request<Leaderboard>('/api/creators/leaderboard'),
 
   submitPost: (campaignId: string, postUrl: string) =>
     request<{ submission: Submission }>('/api/submissions', { method: 'POST', body: json({ campaignId, postUrl }) }),
   mySubmissions: () => request<{ submissions: Submission[]; earnings: Earnings }>('/api/submissions/mine'),
+  myPayouts: () => request<{ payouts: PayoutEntry[] }>('/api/submissions/payouts'),
   updateViews: (submissionId: string, views: number) =>
     request<ViewsUpdateResult>(`/api/submissions/${submissionId}/views`, { method: 'PATCH', body: json({ views }) }),
 };

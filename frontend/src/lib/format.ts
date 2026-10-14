@@ -1,4 +1,4 @@
-import type { Campaign } from './types';
+import type { Campaign, Milestone } from './types';
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 const num = new Intl.NumberFormat('en-IN');
@@ -49,6 +49,29 @@ export function deadlineLabel(endsAt?: string): string | null {
 
 export function statusLabel(c: Pick<Campaign, 'status'>): string {
   return c.status === 'live' ? 'Live' : c.status === 'ended' ? 'Ended' : 'Budget used up';
+}
+
+/**
+ * The next milestone a post hasn't reached yet, with how many more views it
+ * needs and how much more it would earn (payouts aren't cumulative, so the
+ * extra is the difference from the current tier). Null once at the top.
+ */
+export function nextMilestone(
+  milestones: readonly Milestone[],
+  views: number,
+): { views: number; payout: number; viewsToGo: number; extra: number; progress: number } | null {
+  const ladder = [...milestones].sort((a, b) => a.views - b.views);
+  const next = ladder.find((m) => m.views > views);
+  if (!next) return null;
+  const current = [...ladder].reverse().find((m) => m.views <= views);
+  const from = current?.views ?? 0;
+  return {
+    views: next.views,
+    payout: next.payout,
+    viewsToGo: next.views - views,
+    extra: next.payout - (current?.payout ?? 0),
+    progress: Math.max(0, Math.min(1, (views - from) / (next.views - from))),
+  };
 }
 
 /** Highest milestone payout: the most a single post can earn. */

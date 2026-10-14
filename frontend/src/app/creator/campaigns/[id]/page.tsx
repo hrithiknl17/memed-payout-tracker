@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Coin, PlatformIcon, Progress, Thumb } from '@/components/brand';
+import { NextMilestone } from '@/components/NextMilestone';
 import { SimulateViews } from '@/components/SimulateViews';
 import { SubmissionStatus } from '@/components/SubmissionStatus';
 import { api, ApiError } from '@/lib/api';
@@ -150,6 +151,7 @@ export default function CreatorCampaignPage() {
                       <strong style={{ color: 'var(--good)' }}>{rupees(s.paidAmount)}</strong>
                     </div>
                     <div className="pills"><span className="pill">{count(s.views)} views</span><SubmissionStatus s={s} /></div>
+                    {s.review !== 'rejected' && <NextMilestone milestones={campaign.milestones} views={s.peakViews} />}
                     <SimulateViews submission={s} onChanged={() => void reload()} />
                   </div>
                 ))}

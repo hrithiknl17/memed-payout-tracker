@@ -17,7 +17,7 @@ export default function BrandDashboard() {
   const totals = campaigns.reduce((t, c) => ({ budget: t.budget + c.budget, spent: t.spent + c.spent }), { budget: 0, spent: 0 });
   const live = campaigns.filter((c) => c.status === 'live').length;
   const posts = campaigns.reduce((n, c) => n + c.submissionCount, 0);
-  const flagged = campaigns.reduce((n, c) => n + c.flaggedCount, 0);
+  const toReview = campaigns.reduce((n, c) => n + c.pendingReviewCount, 0);
 
   return (
     <div className="page">
@@ -55,7 +55,7 @@ export default function BrandDashboard() {
           <div className="value">{live}</div>
           <div className="label">
             Live campaigns · {posts} post{posts === 1 ? '' : 's'}
-            {flagged > 0 && <span style={{ color: 'var(--bad)' }}> · {flagged} flagged</span>}
+            {toReview > 0 && <span style={{ color: 'var(--bad)' }}> · {toReview} spike{toReview === 1 ? '' : 's'} to review</span>}
           </div>
         </div>
       </div>

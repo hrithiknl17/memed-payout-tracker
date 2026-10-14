@@ -4,6 +4,7 @@ import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { EmptyFolder, Thumb } from '@/components/brand';
+import { NextMilestone } from '@/components/NextMilestone';
 import { SimulateViews } from '@/components/SimulateViews';
 import { SubmissionStatus } from '@/components/SubmissionStatus';
 import { count, rupees, timeAgo } from '@/lib/format';
@@ -76,6 +77,7 @@ export default function ParticipationsPage() {
                       <div className="pills" style={{ marginTop: 6 }}>
                         <SubmissionStatus s={s} />
                       </div>
+                      {c && s.review !== 'rejected' && <NextMilestone milestones={c.milestones} views={s.peakViews} />}
                     </div>
                     <div style={{ minWidth: 100 }}>
                       <strong>{count(s.views)}</strong>

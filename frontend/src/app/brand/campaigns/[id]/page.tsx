@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { StatusPill } from '@/components/CampaignTable';
 import { Coin, PlatformIcon, Progress, Thumb } from '@/components/brand';
+import { MilestoneFunnel, SpendChart } from '@/components/CampaignCharts';
+import { ReviewActions } from '@/components/ReviewActions';
 import { SubmissionStatus } from '@/components/SubmissionStatus';
 import { api } from '@/lib/api';
 import { count, deadlineLabel, formatDate, initials, platformLabel, rupees, shortCount, timeAgo } from '@/lib/format';
@@ -12,9 +14,13 @@ import { useLoad } from '@/lib/hooks';
 
 export default function BrandCampaignPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, error } = useLoad(async () => {
-    const [{ campaigns }, { submissions }] = await Promise.all([api.myCampaigns(), api.campaignSubmissions(id)]);
-    return { campaign: campaigns.find((c) => c.id === id) ?? null, submissions };
+  const { data, error, reload } = useLoad(async () => {
+    const [{ campaigns }, { submissions }, { analytics }] = await Promise.all([
+      api.myCampaigns(),
+      api.campaignSubmissions(id),
+      api.campaignAnalytics(id),
+    ]);
+    return { campaign: campaigns.find((c) => c.id === id) ?? null, submissions, analytics };
   });
 
   if (error) {
@@ -26,7 +32,7 @@ export default function BrandCampaignPage() {
     );
   }
   if (!data) return <p className="loading">Loading campaign…</p>;
-  const { campaign, submissions } = data;
+  const { campaign, submissions, analytics } = data;
   if (!campaign) return <div className="page"><p className="alert error">Campaign not found.</p></div>;
 
   const pct = campaign.budget > 0 ? Math.round((campaign.spent / campaign.budget) * 100) : 0;
@@ -76,9 +82,32 @@ export default function BrandCampaignPage() {
           <div className="value">{shortCount(totalViews)}</div>
           <div className="label">
             Views across {submissions.length} post{submissions.length === 1 ? '' : 's'}
-            {campaign.flaggedCount > 0 && <span style={{ color: 'var(--bad)' }}> · {campaign.flaggedCount} flagged</span>}
+            {campaign.pendingReviewCount > 0 && (
+              <span style={{ color: 'var(--bad)' }}> · {campaign.pendingReviewCount} to review</span>
+            )}
           </div>
         </div>
+      </div>
+
+      {analytics.held.posts > 0 && (
+        <p className="alert error section" style={{ marginTop: 20 }}>
+          {analytics.held.posts} post{analytics.held.posts === 1 ? ' is' : 's are'} on hold after a sudden view spike
+          {analytics.held.owed > 0 && <> ({rupees(analytics.held.owed)} not yet paid)</>}. Check the post, then approve to
+          pay it or reject to keep it unpaid.
+        </p>
+      )}
+
+      <div className="grid-2 section" style={{ marginTop: 24 }}>
+        <section className="card card-pad">
+          <h2 style={{ fontSize: 19 }}>Budget spent over time</h2>
+          <p className="hint" style={{ margin: '4px 0 12px' }}>Running total of payouts, against the campaign budget.</p>
+          <SpendChart data={analytics.spendByDay} budget={campaign.budget} startedAt={campaign.createdAt} />
+        </section>
+        <section className="card card-pad">
+          <h2 style={{ fontSize: 19 }}>Milestone funnel</h2>
+          <p className="hint" style={{ margin: '4px 0 12px' }}>How far creator posts have climbed the payout ladder.</p>
+          <MilestoneFunnel analytics={analytics} />
+        </section>
       </div>
 
       <div className="split section">
@@ -124,7 +153,12 @@ export default function BrandCampaignPage() {
                       <td className="num" data-label="Paid">
                         <strong style={{ color: 'var(--good)' }}>{rupees(s.paidAmount)}</strong>
                       </td>
-                      <td data-label="Notes"><SubmissionStatus s={s} /></td>
+                      <td data-label="Notes">
+                        <SubmissionStatus s={s} />
+                        {s.review === 'pending' && (
+                          <ReviewActions campaignId={campaign.id} submission={s} onDone={() => void reload()} />
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

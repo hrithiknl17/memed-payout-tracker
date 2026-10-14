@@ -21,7 +21,13 @@ export function SimulateViews({ submission, onChanged }: { submission: Submissio
       const r = await api.updateViews(submission.id, Number(views));
       const parts = [r.payout.paidNow > 0 ? `+${rupees(r.payout.paidNow)} credited` : 'No new payout'];
       if (r.payout.cappedByBudget) parts.push('budget ran out');
-      if (r.spikeDetected) parts.push('view spike flagged');
+      if (r.payout.held) {
+        parts.push(
+          r.submission.review === 'rejected'
+            ? 'the brand rejected this post’s view spike'
+            : 'payout on hold until the brand reviews the view spike',
+        );
+      }
       setMsg({ ok: true, text: parts.join(' · ') });
       onChanged();
     } catch (err) {
