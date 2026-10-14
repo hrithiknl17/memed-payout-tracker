@@ -23,7 +23,8 @@ export interface SettlementStore {
   /**
    * Compare-and-set on the submission: adds `amount` to paidAmount only if
    * paidAmount still equals `expectedPaid`. Returns false if someone else
-   * paid in the meantime. This is what prevents double-paying.
+   * paid in the meantime. This is what prevents double-paying. Must also
+   * return false if the submission was put on hold since it was read.
    */
   creditSubmission(
     submissionId: string,
@@ -43,6 +44,12 @@ export interface SubmissionSnapshot {
   peakViews: number;
   paidAmount: number;
   cappedByBudget: boolean;
+  /**
+   * True while a view spike awaits the brand's review (or after a rejection).
+   * Nothing is paid while on hold; stores must also refuse to credit a held
+   * submission so a payout can't slip in between the read and the write.
+   */
+  onHold: boolean;
 }
 
 export interface CampaignSnapshot {
@@ -57,6 +64,8 @@ export interface SettlementResult {
   totalPaid: number;
   entitled: number;
   cappedByBudget: boolean;
+  /** True when nothing was paid because the submission is on hold for review. */
+  held: boolean;
 }
 
 export class SettlementConflictError extends Error {
@@ -103,6 +112,16 @@ export async function settleSubmission(
       remainingBudget: campaign.budget - campaign.spent,
     });
 
+    if (sub.onHold) {
+      return {
+        paidNow: 0,
+        totalPaid: sub.paidAmount,
+        entitled: decision.entitled,
+        cappedByBudget: sub.cappedByBudget,
+        held: true,
+      };
+    }
+
     if (decision.grant === 0) {
       // Nothing payable now: either fully paid, or the budget is gone.
       if (sub.cappedByBudget !== decision.cappedByBudget) {
@@ -113,6 +132,7 @@ export async function settleSubmission(
         totalPaid: sub.paidAmount,
         entitled: decision.entitled,
         cappedByBudget: decision.cappedByBudget,
+        held: false,
       };
     }
 
@@ -126,7 +146,8 @@ export async function settleSubmission(
       decision.cappedByBudget,
     );
     if (!credited) {
-      // Another request paid this submission first. Give the money back.
+      // Another request paid this submission first, or it was just put on
+      // hold. Give the money back and re-read.
       await store.releaseBudget(campaign.id, decision.grant);
       continue;
     }
@@ -136,6 +157,7 @@ export async function settleSubmission(
       totalPaid: sub.paidAmount + decision.grant,
       entitled: decision.entitled,
       cappedByBudget: decision.cappedByBudget,
+      held: false,
     };
   }
   throw new SettlementConflictError();

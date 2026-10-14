@@ -1,15 +1,17 @@
 import { Router } from 'express';
 import { authOf, requireAuth, requireRole } from '../middleware/auth';
 import { parse } from '../middleware/validate';
+import { writeLimiter } from '../middleware/rateLimit';
 import {
   createCampaign,
+  getCampaignAnalytics,
   listBrandCampaigns,
   listEndedCampaigns,
   listLiveCampaigns,
   updateCampaign,
 } from '../services/campaignService';
-import { listCampaignSubmissions } from '../services/submissionService';
-import { createCampaignSchema, updateCampaignSchema } from './schemas';
+import { listCampaignSubmissions, reviewSubmission } from '../services/submissionService';
+import { createCampaignSchema, reviewSchema, updateCampaignSchema } from './schemas';
 
 export const campaignRouter = Router();
 
@@ -45,4 +47,17 @@ campaignRouter.patch('/:id', requireRole('brand'), async (req, res) => {
 /** Brand: submissions on one of their campaigns. */
 campaignRouter.get('/:id/submissions', requireRole('brand'), async (req, res) => {
   res.json({ submissions: await listCampaignSubmissions(String(req.params.id), authOf(req).userId) });
+});
+
+/** Brand: payout trend and milestone funnel for one campaign. */
+campaignRouter.get('/:id/analytics', requireRole('brand'), async (req, res) => {
+  res.json({ analytics: await getCampaignAnalytics(String(req.params.id), authOf(req).userId) });
+});
+
+/** Brand: approve (release payout) or reject a submission held for a view spike. */
+campaignRouter.post('/:id/submissions/:submissionId/review', requireRole('brand'), writeLimiter, async (req, res) => {
+  const { decision } = parse(reviewSchema, req.body);
+  res.json(
+    await reviewSubmission(authOf(req).userId, String(req.params.id), String(req.params.submissionId), decision),
+  );
 });

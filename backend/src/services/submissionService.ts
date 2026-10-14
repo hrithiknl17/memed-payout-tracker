@@ -4,7 +4,8 @@ import { entitledPayout } from '../domain/payout';
 import { settleSubmission, type SettlementResult } from '../domain/settlement';
 import { detectSpike } from '../domain/spike';
 import { CampaignModel } from '../models/Campaign';
-import { SubmissionModel } from '../models/Submission';
+import { PayoutEntryModel } from '../models/PayoutEntry';
+import { SubmissionModel, type ReviewState } from '../models/Submission';
 import { UserModel } from '../models/User';
 import { HttpError } from '../utils/httpError';
 import { normalisePostUrl } from '../utils/postUrl';
@@ -29,6 +30,8 @@ export interface SubmissionView {
   cappedByBudget: boolean;
   flagged: boolean;
   flagReason?: string;
+  /** Brand review of a view spike; payouts are held while `pending` or `rejected`. */
+  review: ReviewState;
   viewsUpdatedAt: string;
   createdAt: string;
 }
@@ -44,6 +47,7 @@ interface SubmissionLike {
   cappedByBudget: boolean;
   flagged: boolean;
   flagReason?: string | null;
+  review?: ReviewState | null;
   viewsUpdatedAt: Date;
   createdAt: Date;
 }
@@ -63,6 +67,7 @@ function toView(s: SubmissionLike, campaign?: { name: string; platform: string }
     cappedByBudget: s.cappedByBudget,
     flagged: s.flagged,
     flagReason: s.flagReason ?? undefined,
+    review: s.review ?? 'none',
     viewsUpdatedAt: s.viewsUpdatedAt.toISOString(),
     createdAt: s.createdAt.toISOString(),
   };
@@ -91,6 +96,13 @@ export async function createSubmission(
     throw HttpError.badRequest(
       `That doesn't look like a ${campaign.platform === 'instagram' ? 'Instagram' : 'YouTube'} post link`,
     );
+  }
+
+  // A post belongs to whoever posted it: stop a second creator claiming the
+  // same link (on this or any other campaign) and collecting its payouts.
+  const claimedByOther = await SubmissionModel.exists({ postUrl, creatorId: { $ne: creatorId } });
+  if (claimedByOther) {
+    throw HttpError.conflict('This post has already been submitted by another creator');
   }
 
   try {
@@ -148,9 +160,47 @@ export async function listCampaignSubmissions(campaignId: string, brandId: strin
   return subs.map((s) => ({ ...toView(s, campaign), creatorName: creatorNames.get(String(s.creatorId)) ?? 'Unknown creator' }));
 }
 
+type PayoutReason = 'views' | 'review-approved';
+
+/**
+ * Pays whatever the submission is owed (atomic, idempotent, budget-capped,
+ * respects review holds), then writes the credit to the payout ledger.
+ */
+async function settleAndRecord(submissionId: string, reason: PayoutReason, now: Date): Promise<SettlementResult> {
+  const payout = await settleSubmission(store, submissionId);
+  if (payout.paidNow === 0) return payout;
+
+  const sub = await SubmissionModel.findById(submissionId).select('campaignId creatorId peakViews').lean();
+  const campaign = sub && (await CampaignModel.findById(sub.campaignId).select('milestones spent budget').lean());
+  if (!sub || !campaign) return payout;
+
+  const reached = campaign.milestones.filter((m) => m.views <= sub.peakViews).map((m) => m.views);
+  await PayoutEntryModel.create({
+    submissionId: sub._id,
+    campaignId: sub.campaignId,
+    creatorId: sub.creatorId,
+    amount: payout.paidNow,
+    views: sub.peakViews,
+    milestoneViews: reached.length ? Math.max(...reached) : 0,
+    entitled: payout.entitled,
+    totalPaid: payout.totalPaid,
+    cappedByBudget: payout.cappedByBudget,
+    reason,
+    createdAt: now,
+  });
+
+  // If this payout used the last of the budget, drop the campaign from the
+  // cached "live" list straight away.
+  if (campaign.spent >= campaign.budget) await cacheDel(CACHE_KEYS.liveCampaigns);
+  return payout;
+}
+
 /**
  * Records a new view count for a post (simulating platform data) and pays out
  * anything newly earned. Safe to call concurrently and repeatedly.
+ *
+ * A view spike puts the submission on hold: nothing more is paid until the
+ * brand approves it (see reviewSubmission).
  */
 export async function updateViews(
   submissionId: string,
@@ -174,11 +224,13 @@ export async function updateViews(
   // 1) Record the reading in one atomic update.
   //    - peakViews / entitledAmount use $max: a milestone once crossed stays
   //      crossed, and payouts are never clawed back when views drop.
-  //    - A spike flag, once raised, stays raised for the brand to review.
+  //    - A spike flag, once raised, stays raised, and holds payouts until the
+  //      brand reviews it. A rejected post stays rejected.
   const set: Record<string, unknown> = { views, viewsUpdatedAt: now };
   if (spike.isSpike) {
     set.flagged = true;
     set.flagReason = `+${spike.gain} views at ~${spike.ratePerMinute}/min`;
+    if (existing.review !== 'rejected') set.review = 'pending';
   }
   await SubmissionModel.updateOne(
     { _id: existing._id },
@@ -188,17 +240,80 @@ export async function updateViews(
     },
   );
 
-  // 2) Pay whatever is newly owed (atomic, idempotent, budget-capped).
-  const payout = await settleSubmission(store, submissionId);
-
-  // 3) If this payout used the last of the budget, drop the campaign from the
-  //    cached "live" list straight away.
-  if (payout.paidNow > 0) {
-    const fresh = await CampaignModel.findById(campaign._id).select('spent budget').lean();
-    if (fresh && fresh.spent >= fresh.budget) await cacheDel(CACHE_KEYS.liveCampaigns);
-  }
+  // 2) Pay whatever is newly owed and log it to the ledger.
+  const payout = await settleAndRecord(submissionId, 'views', now);
 
   const saved = await SubmissionModel.findById(submissionId).lean();
   if (!saved) throw HttpError.notFound('Submission not found');
   return { submission: toView(saved, campaign), payout, spikeDetected: spike.isSpike };
+}
+
+/**
+ * Brand: approve or reject a submission held for a view spike. Approving
+ * releases the hold and pays everything owed right away; rejecting keeps it
+ * held (money already paid before the spike is not clawed back).
+ */
+export async function reviewSubmission(
+  brandId: string,
+  campaignId: string,
+  submissionId: string,
+  decision: 'approve' | 'reject',
+  now: Date = new Date(),
+): Promise<{ submission: SubmissionView; payout: SettlementResult | null }> {
+  assertObjectId(submissionId, 'Submission');
+  const campaign = await getOwnedCampaign(campaignId, brandId);
+
+  // Only a pending review can be decided, and only once: the filter makes
+  // two concurrent decisions race safely (one wins, the other gets a 409).
+  const updated = await SubmissionModel.findOneAndUpdate(
+    { _id: submissionId, campaignId: campaign._id, review: 'pending' },
+    { $set: { review: decision === 'approve' ? 'approved' : 'rejected', reviewedAt: now } },
+    { new: true },
+  ).lean();
+  if (!updated) {
+    const exists = await SubmissionModel.exists({ _id: submissionId, campaignId: campaign._id });
+    if (!exists) throw HttpError.notFound('Submission not found');
+    throw HttpError.conflict('This submission has no pending review');
+  }
+
+  const payout = decision === 'approve' ? await settleAndRecord(submissionId, 'review-approved', now) : null;
+  const saved = await SubmissionModel.findById(submissionId).lean();
+  if (!saved) throw HttpError.notFound('Submission not found');
+  return { submission: toView(saved, campaign), payout };
+}
+
+export interface PayoutEntryView {
+  id: string;
+  submissionId: string;
+  campaignId: string;
+  campaignName?: string;
+  amount: number;
+  views: number;
+  milestoneViews: number;
+  totalPaid: number;
+  cappedByBudget: boolean;
+  reason: PayoutReason;
+  createdAt: string;
+}
+
+/** Creator: their payout ledger, newest first. */
+export async function listCreatorPayouts(creatorId: string, limit = 100): Promise<PayoutEntryView[]> {
+  const entries = await PayoutEntryModel.find({ creatorId }).sort({ createdAt: -1 }).limit(limit).lean();
+  const campaigns = await CampaignModel.find({ _id: { $in: entries.map((e) => e.campaignId) } })
+    .select('name')
+    .lean();
+  const names = new Map(campaigns.map((c) => [String(c._id), c.name]));
+  return entries.map((e) => ({
+    id: String(e._id),
+    submissionId: String(e.submissionId),
+    campaignId: String(e.campaignId),
+    campaignName: names.get(String(e.campaignId)),
+    amount: e.amount,
+    views: e.views,
+    milestoneViews: e.milestoneViews,
+    totalPaid: e.totalPaid,
+    cappedByBudget: e.cappedByBudget,
+    reason: e.reason,
+    createdAt: e.createdAt.toISOString(),
+  }));
 }

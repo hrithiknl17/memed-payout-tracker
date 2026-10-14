@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { CampaignModel } from '../models/Campaign';
-import { SubmissionModel } from '../models/Submission';
+import { HELD_REVIEW_STATES, SubmissionModel } from '../models/Submission';
 import type {
   CampaignSnapshot,
   SettlementStore,
@@ -15,7 +15,7 @@ import type {
 export class MongoSettlementStore implements SettlementStore {
   async getSubmission(id: string): Promise<SubmissionSnapshot | null> {
     const s = await SubmissionModel.findById(id)
-      .select('campaignId peakViews paidAmount cappedByBudget')
+      .select('campaignId peakViews paidAmount cappedByBudget review')
       .lean();
     if (!s) return null;
     return {
@@ -24,6 +24,7 @@ export class MongoSettlementStore implements SettlementStore {
       peakViews: s.peakViews,
       paidAmount: s.paidAmount,
       cappedByBudget: s.cappedByBudget,
+      onHold: HELD_REVIEW_STATES.includes(s.review),
     };
   }
 
@@ -62,9 +63,13 @@ export class MongoSettlementStore implements SettlementStore {
     cappedByBudget: boolean,
   ): Promise<boolean> {
     // Compare-and-set: only succeeds if nobody has paid this submission since
-    // we read it.
+    // we read it, and it hasn't been put on hold for review in the meantime.
     const res = await SubmissionModel.updateOne(
-      { _id: new Types.ObjectId(submissionId), paidAmount: expectedPaid },
+      {
+        _id: new Types.ObjectId(submissionId),
+        paidAmount: expectedPaid,
+        review: { $nin: [...HELD_REVIEW_STATES] },
+      },
       { $inc: { paidAmount: amount }, $set: { cappedByBudget } },
     );
     return res.modifiedCount === 1;

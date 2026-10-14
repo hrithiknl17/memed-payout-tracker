@@ -91,3 +91,7 @@ export const updateViewsSchema = z.object({
     .min(0, 'views cannot be negative')
     .max(1e12),
 });
+
+export const reviewSchema = z.object({
+  decision: z.enum(['approve', 'reject'], { message: "decision must be 'approve' or 'reject'" }),
+});

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { authOf, requireAuth, requireRole } from '../middleware/auth';
+import { writeLimiter } from '../middleware/rateLimit';
 import { parse } from '../middleware/validate';
 import {
   createSubmission,
   getCreatorEarnings,
+  listCreatorPayouts,
   listCreatorSubmissions,
   updateViews,
 } from '../services/submissionService';
@@ -15,13 +17,13 @@ export const submissionRouter = Router();
  * Simulates platform data. Per the brief there is deliberately no auth/role
  * check here — in production this would be an internal job or a signed webhook.
  */
-submissionRouter.patch('/:id/views', async (req, res) => {
+submissionRouter.patch('/:id/views', writeLimiter, async (req, res) => {
   const { views } = parse(updateViewsSchema, req.body);
   res.json(await updateViews(String(req.params.id), views));
 });
 
 /** Creator: submit a post link to a campaign. */
-submissionRouter.post('/', requireAuth, requireRole('creator'), async (req, res) => {
+submissionRouter.post('/', requireAuth, requireRole('creator'), writeLimiter, async (req, res) => {
   const input = parse(createSubmissionSchema, req.body);
   res.status(201).json({ submission: await createSubmission(authOf(req).userId, input) });
 });
@@ -34,4 +36,9 @@ submissionRouter.get('/mine', requireAuth, requireRole('creator'), async (req, r
     getCreatorEarnings(creatorId),
   ]);
   res.json({ submissions, earnings });
+});
+
+/** Creator: payout ledger, one row per credit, newest first. */
+submissionRouter.get('/payouts', requireAuth, requireRole('creator'), async (req, res) => {
+  res.json({ payouts: await listCreatorPayouts(authOf(req).userId) });
 });

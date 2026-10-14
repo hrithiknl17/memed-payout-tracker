@@ -14,7 +14,7 @@ function setup(budget: number, submissionCount: number) {
   const ids: string[] = [];
   for (let i = 0; i < submissionCount; i++) {
     const id = `s${i}`;
-    store.addSubmission({ id, campaignId: 'c1', peakViews: 0, paidAmount: 0, cappedByBudget: false });
+    store.addSubmission({ id, campaignId: 'c1', peakViews: 0, paidAmount: 0, cappedByBudget: false, onHold: false });
     ids.push(id);
   }
   return { store, ids };
@@ -25,7 +25,7 @@ describe('settleSubmission', () => {
     const { store } = setup(10_000, 1);
     store.setViews('s0', 60_000);
     const result = await settleSubmission(store, 's0');
-    expect(result).toEqual({ paidNow: 2_000, totalPaid: 2_000, entitled: 2_000, cappedByBudget: false });
+    expect(result).toEqual({ paidNow: 2_000, totalPaid: 2_000, entitled: 2_000, cappedByBudget: false, held: false });
     expect(store.campaigns.get('c1')!.spent).toBe(2_000);
   });
 
@@ -81,5 +81,46 @@ describe('concurrency (stretch goal)', () => {
     for (let i = 0; i < 5; i++) await settleSubmission(store, 's0');
     expect(store.submissions.get('s0')!.paidAmount).toBe(2_000);
     expect(store.campaigns.get('c1')!.spent).toBe(2_000);
+  });
+});
+
+describe('settleSubmission with a review hold', () => {
+  it('pays nothing while the submission is on hold', async () => {
+    const { store } = setup(10_000, 1);
+    store.submissions.get('s0')!.onHold = true;
+    store.setViews('s0', 60_000);
+    const result = await settleSubmission(store, 's0');
+    expect(result).toMatchObject({ paidNow: 0, totalPaid: 0, entitled: 2_000, held: true });
+    expect(store.campaigns.get('c1')!.spent).toBe(0);
+  });
+
+  it('pays everything owed once the hold is lifted', async () => {
+    const { store } = setup(10_000, 1);
+    store.submissions.get('s0')!.onHold = true;
+    store.setViews('s0', 120_000);
+    await settleSubmission(store, 's0');
+    store.submissions.get('s0')!.onHold = false;
+    const result = await settleSubmission(store, 's0');
+    expect(result).toMatchObject({ paidNow: 5_000, totalPaid: 5_000, held: false });
+    expect(store.campaigns.get('c1')!.spent).toBe(5_000);
+  });
+
+  it('refunds the reservation if a hold lands between reserve and credit', async () => {
+    const { store } = setup(10_000, 1);
+    store.setViews('s0', 60_000);
+    const reserve = store.reserveBudget.bind(store);
+    let first = true;
+    store.reserveBudget = async (id, amount) => {
+      const ok = await reserve(id, amount);
+      if (first) {
+        first = false;
+        store.submissions.get('s0')!.onHold = true; // spike flagged mid-settlement
+      }
+      return ok;
+    };
+    const result = await settleSubmission(store, 's0');
+    expect(result.held).toBe(true);
+    expect(result.paidNow).toBe(0);
+    expect(store.campaigns.get('c1')!.spent).toBe(0);
   });
 });

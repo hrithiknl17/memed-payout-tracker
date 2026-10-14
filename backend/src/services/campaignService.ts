@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { env } from '../config/env';
 import { normaliseLadder, validateLadder, type Milestone } from '../domain/payout';
 import { CampaignModel, type Platform } from '../models/Campaign';
+import { PayoutEntryModel } from '../models/PayoutEntry';
 import { SubmissionModel } from '../models/Submission';
 import { UserModel } from '../models/User';
 import { HttpError } from '../utils/httpError';
@@ -32,6 +33,8 @@ export interface CampaignView {
 export interface BrandCampaignView extends CampaignView {
   submissionCount: number;
   flaggedCount: number;
+  /** Spiked submissions waiting for the brand to approve or reject. */
+  pendingReviewCount: number;
 }
 
 export interface LiveCampaignView extends CampaignView {
@@ -147,13 +150,14 @@ export async function listBrandCampaigns(brandId: string): Promise<BrandCampaign
   const campaigns = await CampaignModel.find({ brandId }).sort({ createdAt: -1 }).lean();
   if (campaigns.length === 0) return [];
 
-  const stats = await SubmissionModel.aggregate<{ _id: Types.ObjectId; count: number; flagged: number }>([
+  const stats = await SubmissionModel.aggregate<{ _id: Types.ObjectId; count: number; flagged: number; pending: number }>([
     { $match: { campaignId: { $in: campaigns.map((c) => c._id) } } },
     {
       $group: {
         _id: '$campaignId',
         count: { $sum: 1 },
         flagged: { $sum: { $cond: ['$flagged', 1, 0] } },
+        pending: { $sum: { $cond: [{ $eq: ['$review', 'pending'] }, 1, 0] } },
       },
     },
   ]);
@@ -161,7 +165,12 @@ export async function listBrandCampaigns(brandId: string): Promise<BrandCampaign
 
   return campaigns.map((c) => {
     const s = byId.get(String(c._id));
-    return { ...toCampaignView(c), submissionCount: s?.count ?? 0, flaggedCount: s?.flagged ?? 0 };
+    return {
+      ...toCampaignView(c),
+      submissionCount: s?.count ?? 0,
+      flaggedCount: s?.flagged ?? 0,
+      pendingReviewCount: s?.pending ?? 0,
+    };
   });
 }
 
@@ -218,4 +227,64 @@ export async function getOwnedCampaign(campaignId: string, brandId: string) {
   if (!campaign) throw HttpError.notFound('Campaign not found');
   if (String(campaign.brandId) !== brandId) throw HttpError.forbidden('This campaign belongs to another brand');
   return campaign;
+}
+
+export interface CampaignAnalytics {
+  /** One point per day with payouts (IST), plus the running total. */
+  spendByDay: { date: string; amount: number; cumulative: number; payouts: number }[];
+  /** For each milestone: posts that reached it, and posts whose top milestone it is. */
+  milestones: { views: number; payout: number; reached: number; topTier: number }[];
+  posts: number;
+  totalViews: number;
+  /** Posts that haven't reached the first milestone yet. */
+  belowFirstMilestone: number;
+  /** Payouts held for review: how many posts, and how much they're owed. */
+  held: { posts: number; owed: number };
+}
+
+/** Brand: payout trend and milestone funnel for one of their campaigns. */
+export async function getCampaignAnalytics(campaignId: string, brandId: string): Promise<CampaignAnalytics> {
+  const campaign = await getOwnedCampaign(campaignId, brandId);
+
+  const [days, subs] = await Promise.all([
+    PayoutEntryModel.aggregate<{ _id: string; amount: number; payouts: number }>([
+      { $match: { campaignId: campaign._id } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Kolkata' } },
+          amount: { $sum: '$amount' },
+          payouts: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    SubmissionModel.find({ campaignId: campaign._id }).select('views peakViews entitledAmount paidAmount review').lean(),
+  ]);
+
+  let running = 0;
+  const spendByDay = days.map((d) => {
+    running += d.amount;
+    return { date: d._id, amount: d.amount, cumulative: running, payouts: d.payouts };
+  });
+
+  const ladder = normaliseLadder(campaign.milestones);
+  const milestones = ladder.map((m, i) => {
+    const next = ladder[i + 1];
+    return {
+      views: m.views,
+      payout: m.payout,
+      reached: subs.filter((s) => s.peakViews >= m.views).length,
+      topTier: subs.filter((s) => s.peakViews >= m.views && (!next || s.peakViews < next.views)).length,
+    };
+  });
+
+  const held = subs.filter((s) => s.review === 'pending' || s.review === 'rejected');
+  return {
+    spendByDay,
+    milestones,
+    posts: subs.length,
+    totalViews: subs.reduce((n, s) => n + s.views, 0),
+    belowFirstMilestone: ladder[0] ? subs.filter((s) => s.peakViews < ladder[0]!.views).length : subs.length,
+    held: { posts: held.length, owed: held.reduce((n, s) => n + Math.max(0, s.entitledAmount - s.paidAmount), 0) },
+  };
 }

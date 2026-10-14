@@ -11,6 +11,7 @@
 import mongoose from 'mongoose';
 import { env } from '../config/env';
 import { CampaignModel } from '../models/Campaign';
+import { PayoutEntryModel } from '../models/PayoutEntry';
 import { SubmissionModel } from '../models/Submission';
 import { UserModel } from '../models/User';
 import { signup, updateProfile } from '../services/authService';
@@ -27,7 +28,9 @@ async function resetDemoData() {
   const users = await UserModel.find({ email: { $regex: `${DEMO_DOMAIN.replace('.', '\\.')}$` } }).select('_id').lean();
   const ids = users.map((u) => u._id);
   const campaigns = await CampaignModel.find({ brandId: { $in: ids } }).select('_id').lean();
-  await SubmissionModel.deleteMany({ $or: [{ creatorId: { $in: ids } }, { campaignId: { $in: campaigns.map((c) => c._id) } }] });
+  const owned = { $or: [{ creatorId: { $in: ids } }, { campaignId: { $in: campaigns.map((c) => c._id) } }] };
+  await PayoutEntryModel.deleteMany(owned);
+  await SubmissionModel.deleteMany(owned);
   await CampaignModel.deleteMany({ _id: { $in: campaigns.map((c) => c._id) } });
   await UserModel.deleteMany({ _id: { $in: ids } });
   console.log(`Removed ${users.length} demo users and ${campaigns.length} demo campaigns.`);
@@ -115,9 +118,18 @@ async function seed() {
     [kabir, audio, ig('kabir-heartbreak'), [[22_000, 12], [105_000, 2]]],
     [kabir, fest, yt('kabir-fits'), [[95_000, 10]]],
     [zoya, snack, ig('zoya-3am'), [[7_500, 3]]],
+    // Deliberate spike (+115K views in ~3 minutes): held for the brand to review.
+    [zoya, audio, ig('zoya-dance-loop'), [[25_000, 0.1], [140_000, 0.05]]],
   ];
   for (const [creator, campaign, link, updates] of plan) {
     const sub = await createSubmission(creator.id, { campaignId: campaign.id, postUrl: link });
+    // Backdate the post so its first reading isn't measured against "now" (which would look like a spike).
+    const postedAt = hoursAgo(updates[0]![1] + 24);
+    await SubmissionModel.updateOne(
+      { _id: sub.id },
+      { $set: { viewsUpdatedAt: postedAt, createdAt: postedAt } },
+      { timestamps: false },
+    );
     for (const [views, ago] of updates) await updateViews(sub.id, views, hoursAgo(ago));
   }
 

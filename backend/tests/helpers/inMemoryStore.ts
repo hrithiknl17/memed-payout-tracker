@@ -54,7 +54,7 @@ export class InMemorySettlementStore implements SettlementStore {
   async creditSubmission(id: string, expectedPaid: number, amount: number, capped: boolean) {
     await tick();
     const s = this.submissions.get(id);
-    if (!s || s.paidAmount !== expectedPaid) return false;
+    if (!s || s.onHold || s.paidAmount !== expectedPaid) return false;
     s.paidAmount += amount;
     s.cappedByBudget = capped;
     return true;

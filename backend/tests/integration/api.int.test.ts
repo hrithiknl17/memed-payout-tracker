@@ -8,6 +8,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { createApp } from '../../src/app';
+import { env } from '../../src/config/env';
 import { CampaignModel } from '../../src/models/Campaign';
 import { SubmissionModel } from '../../src/models/Submission';
 
@@ -315,5 +316,136 @@ describe('profile and leaderboard', () => {
     expect(res.body.creators.map((c: { earnings: number }) => c.earnings)).toEqual([5_000, 2_000]);
     expect(res.body.creators[0]).toMatchObject({ rank: 1, platforms: ['instagram'] });
     expect(res.body.me).toEqual({ rank: 2, earnings: 2_000 });
+  });
+});
+
+describe('payout ledger, spike review and analytics', () => {
+  const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+  const review = (token: string, campaignId: string, subId: string, decision: string) =>
+    request(app).post(`/api/campaigns/${campaignId}/submissions/${subId}/review`).set(auth(token)).send({ decision });
+
+  /** Turns spike detection on for one test (setupEnv disables it). */
+  async function withSpikes(fn: () => Promise<void>) {
+    const saved = env.SPIKE_MIN_GAIN;
+    env.SPIKE_MIN_GAIN = 10_000;
+    try {
+      await fn();
+    } finally {
+      env.SPIKE_MIN_GAIN = saved;
+    }
+  }
+
+  it('writes one ledger entry per credit with the milestone reached', async () => {
+    const brand = await signup('brand');
+    const creator = await signup('creator');
+    const campaignId = await createCampaign(brand, 20_000);
+    const subId = await submit(creator, campaignId, 1);
+    await setViews(subId, 12_000).expect(200); // ₹500
+    await setViews(subId, 12_000).expect(200); // nothing new, so no entry
+    await setViews(subId, 60_000).expect(200); // +₹1,500
+
+    const res = await request(app).get('/api/submissions/payouts').set(auth(creator)).expect(200);
+    expect(res.body.payouts.map((p: { amount: number }) => p.amount)).toEqual([1_500, 500]); // newest first
+    expect(res.body.payouts[0]).toMatchObject({
+      milestoneViews: 50_000,
+      totalPaid: 2_000,
+      reason: 'views',
+      campaignName: 'Summer Drop',
+    });
+    await request(app).get('/api/submissions/payouts').set(auth(brand)).expect(403);
+  });
+
+  it('holds a spiked post until the owning brand approves, then pays it', async () => {
+    await withSpikes(async () => {
+      const brand = await signup('brand');
+      const creator = await signup('creator');
+      const campaignId = await createCampaign(brand, 20_000);
+      const subId = await submit(creator, campaignId, 1);
+
+      const spiked = await setViews(subId, 60_000).expect(200);
+      expect(spiked.body).toMatchObject({ spikeDetected: true, payout: { paidNow: 0, held: true } });
+      expect(spiked.body.submission.review).toBe('pending');
+
+      const mine = await request(app).get('/api/campaigns/mine').set(auth(brand)).expect(200);
+      expect(mine.body.campaigns[0]).toMatchObject({ spent: 0, pendingReviewCount: 1 });
+
+      await review(await signup('brand'), campaignId, subId, 'approve').expect(403);
+
+      const approved = await review(brand, campaignId, subId, 'approve').expect(200);
+      expect(approved.body.payout).toMatchObject({ paidNow: 2_000, held: false });
+      expect(approved.body.submission.review).toBe('approved');
+
+      // A decision can only be made once.
+      await review(brand, campaignId, subId, 'reject').expect(409);
+
+      const ledger = await request(app).get('/api/submissions/payouts').set(auth(creator)).expect(200);
+      expect(ledger.body.payouts[0]).toMatchObject({ amount: 2_000, reason: 'review-approved' });
+    });
+  });
+
+  it('keeps a rejected post unpaid even as its views keep growing', async () => {
+    await withSpikes(async () => {
+      const brand = await signup('brand');
+      const creator = await signup('creator');
+      const campaignId = await createCampaign(brand, 20_000);
+      const subId = await submit(creator, campaignId, 1);
+      await setViews(subId, 60_000).expect(200);
+      await review(brand, campaignId, subId, 'reject').expect(200);
+
+      const later = await setViews(subId, 200_000).expect(200);
+      expect(later.body.payout).toMatchObject({ paidNow: 0, held: true });
+      expect(later.body.submission.review).toBe('rejected');
+      expect((await CampaignModel.findById(campaignId).lean())!.spent).toBe(0);
+    });
+  });
+
+  it('validates review requests', async () => {
+    const brand = await signup('brand');
+    const creator = await signup('creator');
+    const campaignId = await createCampaign(brand, 20_000);
+    const subId = await submit(creator, campaignId, 1);
+    await review(brand, campaignId, subId, 'maybe').expect(400);
+    await review(brand, campaignId, subId, 'approve').expect(409); // nothing pending
+    await review(brand, campaignId, String(new mongoose.Types.ObjectId()), 'approve').expect(404);
+  });
+
+  it("stops a second creator claiming someone else's post", async () => {
+    const brand = await signup('brand');
+    const alice = await signup('creator');
+    const bob = await signup('creator');
+    const first = await createCampaign(brand, 20_000);
+    const second = await createCampaign(brand, 20_000);
+    await submit(alice, first, 7);
+
+    // Same post (different link format), another campaign, another creator: rejected.
+    const res = await request(app)
+      .post('/api/submissions')
+      .set(auth(bob))
+      .send({ campaignId: second, postUrl: 'https://instagram.com/reel/post7?igsh=abc' })
+      .expect(409);
+    expect(res.body.error).toMatch(/another creator/);
+
+    // The owner can still enter it in another campaign.
+    await submit(alice, second, 7);
+  });
+
+  it('reports spend by day and the milestone funnel', async () => {
+    const brand = await signup('brand');
+    const creator = await signup('creator');
+    const campaignId = await createCampaign(brand, 20_000);
+    await setViews(await submit(creator, campaignId, 1), 12_000).expect(200); // tier 1, ₹500
+    await setViews(await submit(creator, campaignId, 2), 60_000).expect(200); // tier 2, ₹2,000
+    await setViews(await submit(creator, campaignId, 3), 150_000).expect(200); // tier 3, ₹5,000
+    await submit(creator, campaignId, 4); // no views yet
+
+    const res = await request(app).get(`/api/campaigns/${campaignId}/analytics`).set(auth(brand)).expect(200);
+    const a = res.body.analytics;
+    expect(a.spendByDay).toHaveLength(1);
+    expect(a.spendByDay[0]).toMatchObject({ amount: 7_500, cumulative: 7_500, payouts: 3 });
+    expect(a.milestones.map((m: { reached: number }) => m.reached)).toEqual([3, 2, 1]);
+    expect(a.milestones.map((m: { topTier: number }) => m.topTier)).toEqual([1, 1, 1]);
+    expect(a).toMatchObject({ posts: 4, belowFirstMilestone: 1, totalViews: 222_000, held: { posts: 0, owed: 0 } });
+
+    await request(app).get(`/api/campaigns/${campaignId}/analytics`).set(auth(await signup('brand'))).expect(403);
   });
 });
