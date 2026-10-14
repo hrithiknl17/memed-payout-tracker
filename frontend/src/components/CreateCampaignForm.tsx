@@ -1,7 +1,9 @@
 'use client';
 
+import { ArrowLeft, ArrowUpRight, Plus, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
+import { rupees } from '@/lib/format';
 import type { Platform } from '@/lib/types';
 
 interface Row {
@@ -16,7 +18,7 @@ const DEFAULT_ROWS: Row[] = [
   { views: '100000', payout: '5000' },
 ];
 
-export function CreateCampaignForm({ onCreated }: { onCreated: () => void }) {
+export function CreateCampaignForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
   const [name, setName] = useState('');
   const [platform, setPlatform] = useState<Platform>('instagram');
   const [budget, setBudget] = useState('50000');
@@ -38,8 +40,6 @@ export function CreateCampaignForm({ onCreated }: { onCreated: () => void }) {
         budget: Number(budget),
         milestones: rows.map((r) => ({ views: Number(r.views), payout: Number(r.payout) })),
       });
-      setName('');
-      setRows(DEFAULT_ROWS);
       onCreated();
     } catch (err) {
       setError(err instanceof ApiError ? err.fullMessage : 'Could not create campaign');
@@ -48,54 +48,97 @@ export function CreateCampaignForm({ onCreated }: { onCreated: () => void }) {
     }
   }
 
+  // Payouts aren't cumulative, so the most one post can earn is the top rung.
+  const topPayout = Math.max(0, ...rows.map((r) => Number(r.payout) || 0));
+
   return (
-    <form className="card" onSubmit={onSubmit}>
-      <h2>New campaign</h2>
-
-      <label htmlFor="cname">Name</label>
-      <input id="cname" value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} placeholder="Diwali sneaker drop" />
-
-      <div className="row">
+    <div className="page">
+      <div className="page-head">
         <div>
-          <label htmlFor="platform">Platform</label>
-          <select id="platform" value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>
-            <option value="instagram">Instagram</option>
-            <option value="youtube">YouTube</option>
-          </select>
+          <p className="eyebrow">Campaign studio · New brief</p>
+          <h1>
+            Make something people <em>share</em>.
+          </h1>
+          <p className="subtitle">Set the budget and the milestone ladder. Creators find the angle.</p>
         </div>
-        <div>
-          <label htmlFor="budget">Total budget (₹)</label>
-          <input id="budget" type="number" min={1} step={1} value={budget} onChange={(e) => setBudget(e.target.value)} required />
-        </div>
+        <button className="btn btn-ghost" type="button" onClick={onCancel}>
+          <ArrowLeft size={15} /> Back
+        </button>
       </div>
 
-      <label>Milestone ladder</label>
-      <p className="small muted" style={{ margin: '0 0 6px' }}>
-        A post earns the payout of the highest milestone it reaches (not the sum).
-      </p>
-      {rows.map((r, i) => (
-        <div className="row" key={i} style={{ marginBottom: 6 }}>
-          <input type="number" min={1} step={1} aria-label="Views" placeholder="Views" value={r.views} onChange={(e) => updateRow(i, 'views', e.target.value)} required />
-          <input type="number" min={1} step={1} aria-label="Payout ₹" placeholder="Payout ₹" value={r.payout} onChange={(e) => updateRow(i, 'payout', e.target.value)} required />
-          <button
-            type="button"
-            className="secondary shrink"
-            onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))}
-            disabled={rows.length === 1}
-            aria-label="Remove milestone"
-          >
-            ✕
-          </button>
-        </div>
-      ))}
-      <button type="button" className="secondary" onClick={() => setRows((rs) => [...rs, { views: '', payout: '' }])}>
-        + Add milestone
-      </button>
+      <form className="form-grid" onSubmit={onSubmit}>
+        <section className="card card-pad">
+          <p className="kicker">01 · Basics</p>
+          <div className="field">
+            <label htmlFor="cname">Campaign name</label>
+            <input id="cname" value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} placeholder="Late-night cravings" />
+          </div>
+          <div className="field">
+            <label htmlFor="platform">Platform</label>
+            <select id="platform" value={platform} onChange={(e) => setPlatform(e.target.value as Platform)}>
+              <option value="instagram">Instagram</option>
+              <option value="youtube">YouTube</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="budget">Total budget</label>
+            <div className="input-prefix">
+              <span aria-hidden="true">₹</span>
+              <input id="budget" type="number" min={1} step={1} value={budget} onChange={(e) => setBudget(e.target.value)} required />
+            </div>
+            <p className="field-hint">Total payouts across all posts can never go above this.</p>
+          </div>
+        </section>
 
-      <button className="full" type="submit" disabled={busy}>
-        {busy ? 'Creating…' : 'Create campaign'}
-      </button>
-      {error && <p className="error">{error}</p>}
-    </form>
+        <section className="card card-pad">
+          <div className="section-head" style={{ marginBottom: 0 }}>
+            <div>
+              <p className="kicker">02 · Milestone ladder</p>
+              <h2 style={{ fontSize: 20 }}>Pay for the moments that matter.</h2>
+            </div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRows((rs) => [...rs, { views: '', payout: '' }])}>
+              <Plus size={14} /> Add milestone
+            </button>
+          </div>
+          <p className="field-hint">A post earns the payout of the highest milestone it reaches, not the sum of every rung.</p>
+
+          {rows.map((r, i) => (
+            <div className="milestone-row" key={i}>
+              <span className="milestone-num">{String(i + 1).padStart(2, '0')}</span>
+              <div className="field">
+                <label htmlFor={`views-${i}`}>Views</label>
+                <input id={`views-${i}`} type="number" min={1} step={1} value={r.views} onChange={(e) => updateRow(i, 'views', e.target.value)} required />
+              </div>
+              <div className="field">
+                <label htmlFor={`payout-${i}`}>Payout (₹)</label>
+                <input id={`payout-${i}`} type="number" min={1} step={1} value={r.payout} onChange={(e) => updateRow(i, 'payout', e.target.value)} required />
+              </div>
+              <button
+                type="button"
+                className="remove-btn"
+                onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))}
+                disabled={rows.length === 1}
+                aria-label={`Remove milestone ${i + 1}`}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+
+          <div className="form-summary">
+            <span>Most a single post can earn</span>
+            <strong>{rupees(topPayout)}</strong>
+          </div>
+          {error && (
+            <p className="alert error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="btn btn-primary btn-block" type="submit" disabled={busy} style={{ marginTop: 18 }}>
+            {busy ? 'Launching…' : 'Launch campaign'} <ArrowUpRight size={15} />
+          </button>
+        </section>
+      </form>
+    </div>
   );
 }

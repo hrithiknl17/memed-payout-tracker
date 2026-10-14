@@ -5,6 +5,12 @@ import { useState, type FormEvent } from 'react';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { Role } from '@/lib/types';
+import { Logo } from './AppShell';
+
+const ROLE_OPTIONS: { id: Role; title: string; blurb: string }[] = [
+  { id: 'creator', title: 'Creator', blurb: 'Post for campaigns, earn by views' },
+  { id: 'brand', title: 'Brand', blurb: 'Run campaigns with a budget' },
+];
 
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const { login, signup } = useAuth();
@@ -31,57 +37,109 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
   const isSignup = mode === 'signup';
   return (
-    <div className="auth-wrap card">
-      <h1>{isSignup ? 'Create an account' : 'Welcome back'}</h1>
-      <p className="sub">{isSignup ? 'Run campaigns as a brand, or earn as a creator.' : 'Log in to your dashboard.'}</p>
+    <main className="auth">
+      <section className="auth-art">
+        <Logo />
+        <div>
+          <h1>
+            Make the internet laugh. <em>Get paid</em> for it.
+          </h1>
+          <p>
+            Brands set a budget and a milestone ladder. Creators post, views climb, and payouts land automatically,
+            never past the budget.
+          </p>
+        </div>
+        <div className="auth-ladder" aria-hidden="true">
+          <div>
+            <span>10K views</span>
+            <span>₹500</span>
+          </div>
+          <div>
+            <span>50K views</span>
+            <span>₹2,000</span>
+          </div>
+          <div>
+            <span>100K views</span>
+            <span>₹5,000</span>
+          </div>
+        </div>
+      </section>
 
-      <form onSubmit={onSubmit}>
-        {isSignup && (
-          <>
-            <label>I am a…</label>
-            <div className="role-pick">
-              {(['creator', 'brand'] as const).map((r) => (
-                <button type="button" key={r} className={role === r ? 'active' : ''} onClick={() => setRole(r)}>
-                  {r === 'brand' ? 'Brand' : 'Creator'}
-                </button>
-              ))}
+      <section className="auth-form-wrap">
+        <div className="card auth-card">
+          <p className="eyebrow">{isSignup ? "Join Meme'd" : 'Welcome back'}</p>
+          <h2>{isSignup ? 'Create your account' : 'Log in'}</h2>
+
+          <form onSubmit={onSubmit} style={{ marginTop: 22 }}>
+            {isSignup && (
+              <>
+                <div className="field">
+                  <span id="role-label">I am a…</span>
+                  <div className="role-pick" role="radiogroup" aria-labelledby="role-label">
+                    {ROLE_OPTIONS.map((r) => (
+                      <button
+                        type="button"
+                        key={r.id}
+                        role="radio"
+                        aria-checked={role === r.id}
+                        className={`role-option${role === r.id ? ' active' : ''}`}
+                        onClick={() => setRole(r.id)}
+                      >
+                        <strong>{r.title}</strong>
+                        <span>{r.blurb}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="name">{role === 'brand' ? 'Brand name' : 'Page / channel name'}</label>
+                  <input id="name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
+                </div>
+              </>
+            )}
+
+            <div className="field">
+              <label htmlFor="email">Email</label>
+              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
             </div>
-            <label htmlFor="name">{role === 'brand' ? 'Brand name' : 'Page / channel name'}</label>
-            <input id="name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
-          </>
-        )}
 
-        <label htmlFor="email">Email</label>
-        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+            <div className="field">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={isSignup ? 8 : 1}
+                autoComplete={isSignup ? 'new-password' : 'current-password'}
+              />
+              {isSignup && <p className="field-hint">At least 8 characters.</p>}
+            </div>
 
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={isSignup ? 8 : 1}
-          autoComplete={isSignup ? 'new-password' : 'current-password'}
-        />
+            <button className="btn btn-primary btn-block" type="submit" disabled={busy} style={{ marginTop: 22 }}>
+              {busy ? 'Please wait…' : isSignup ? 'Create account' : 'Log in'}
+            </button>
+            {error && (
+              <p className="alert error" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
 
-        <button className="full" type="submit" disabled={busy}>
-          {busy ? 'Please wait…' : isSignup ? 'Sign up' : 'Log in'}
-        </button>
-        {error && <p className="error">{error}</p>}
-      </form>
-
-      <p className="small muted" style={{ marginTop: 16 }}>
-        {isSignup ? (
-          <>
-            Already have an account? <Link href="/login">Log in</Link>
-          </>
-        ) : (
-          <>
-            New here? <Link href="/signup">Create an account</Link>
-          </>
-        )}
-      </p>
-    </div>
+          <p className="auth-switch">
+            {isSignup ? (
+              <>
+                Already have an account? <Link href="/login">Log in</Link>
+              </>
+            ) : (
+              <>
+                New here? <Link href="/signup">Create an account</Link>
+              </>
+            )}
+          </p>
+        </div>
+      </section>
+    </main>
   );
 }

@@ -32,10 +32,16 @@ export interface BrandCampaign extends Campaign {
   flaggedCount: number;
 }
 
+export interface LiveCampaign extends Campaign {
+  brandName: string;
+}
+
 export interface Submission {
   id: string;
   campaignId: string;
   campaignName?: string;
+  /** Only on a brand's view of its campaign's posts. */
+  creatorName?: string;
   platform?: Platform;
   postUrl: string;
   views: number;

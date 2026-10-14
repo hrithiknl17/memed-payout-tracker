@@ -11,5 +11,5 @@ export default function Home() {
   useEffect(() => {
     if (!loading) router.replace(user ? homeFor(user.role) : '/login');
   }, [user, loading, router]);
-  return <p className="muted">Loading…</p>;
+  return <p className="loading">Loading…</p>;
 }

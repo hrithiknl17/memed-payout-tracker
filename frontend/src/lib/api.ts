@@ -2,6 +2,7 @@ import type {
   BrandCampaign,
   Campaign,
   Earnings,
+  LiveCampaign,
   Milestone,
   Platform,
   Role,
@@ -72,7 +73,7 @@ export const api = {
   createCampaign: (input: { name: string; platform: Platform; budget: number; milestones: Milestone[] }) =>
     request<{ campaign: Campaign }>('/api/campaigns', { method: 'POST', body: json(input) }),
   myCampaigns: () => request<{ campaigns: BrandCampaign[] }>('/api/campaigns/mine'),
-  liveCampaigns: () => request<{ campaigns: Campaign[] }>('/api/campaigns/live'),
+  liveCampaigns: () => request<{ campaigns: LiveCampaign[] }>('/api/campaigns/live'),
   campaignSubmissions: (id: string) => request<{ submissions: Submission[] }>(`/api/campaigns/${id}/submissions`),
 
   submitPost: (campaignId: string, postUrl: string) =>

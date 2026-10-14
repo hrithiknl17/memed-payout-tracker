@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
-import { Header } from '@/components/Header';
+import { Space_Grotesk } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth';
 import './globals.css';
+
+const sans = Space_Grotesk({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 
 export const metadata: Metadata = {
   title: "Meme'd — Campaign Payouts",
@@ -10,14 +12,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={sans.variable}>
       <body>
-        <AuthProvider>
-          <div className="shell">
-            <Header />
-            {children}
-          </div>
-        </AuthProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
