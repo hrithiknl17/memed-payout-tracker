@@ -82,6 +82,9 @@ export async function createSubmission(
   if (campaign.spent >= campaign.budget) {
     throw HttpError.conflict('This campaign has used its whole budget and is no longer accepting posts');
   }
+  if (campaign.endsAt && campaign.endsAt.getTime() <= Date.now()) {
+    throw HttpError.conflict('This campaign has ended and is no longer accepting posts');
+  }
 
   const postUrl = normalisePostUrl(input.postUrl, campaign.platform);
   if (!postUrl) {

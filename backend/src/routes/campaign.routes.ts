@@ -1,9 +1,15 @@
 import { Router } from 'express';
 import { authOf, requireAuth, requireRole } from '../middleware/auth';
 import { parse } from '../middleware/validate';
-import { createCampaign, listBrandCampaigns, listLiveCampaigns } from '../services/campaignService';
+import {
+  createCampaign,
+  listBrandCampaigns,
+  listEndedCampaigns,
+  listLiveCampaigns,
+  updateCampaign,
+} from '../services/campaignService';
 import { listCampaignSubmissions } from '../services/submissionService';
-import { createCampaignSchema } from './schemas';
+import { createCampaignSchema, updateCampaignSchema } from './schemas';
 
 export const campaignRouter = Router();
 
@@ -20,9 +26,20 @@ campaignRouter.get('/mine', requireRole('brand'), async (req, res) => {
   res.json({ campaigns: await listBrandCampaigns(authOf(req).userId) });
 });
 
-/** Creator (or anyone logged in): campaigns that still have budget. */
+/** Anyone logged in: campaigns creators can still join (budget left, not past deadline). */
 campaignRouter.get('/live', async (_req, res) => {
   res.json({ campaigns: await listLiveCampaigns() });
+});
+
+/** Anyone logged in: recently ended campaigns (budget used up or deadline passed). */
+campaignRouter.get('/ended', async (_req, res) => {
+  res.json({ campaigns: await listEndedCampaigns() });
+});
+
+/** Brand: edit name, objective, thumbnail or deadline. Budget and milestones are fixed. */
+campaignRouter.patch('/:id', requireRole('brand'), async (req, res) => {
+  const input = parse(updateCampaignSchema, req.body);
+  res.json({ campaign: await updateCampaign(authOf(req).userId, String(req.params.id), input) });
 });
 
 /** Brand: submissions on one of their campaigns. */

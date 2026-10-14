@@ -25,6 +25,16 @@ const campaignSchema = new Schema(
     spent: { type: Number, required: true, default: 0, min: 0 },
     /** Stored sorted by `views` ascending. */
     milestones: { type: [milestoneSchema], required: true },
+    /** What the brand wants creators to make. Display only. */
+    objective: { type: String, trim: true, maxlength: 1000 },
+    /** Cover image shown on campaign cards. */
+    thumbnailUrl: { type: String, trim: true, maxlength: 1000 },
+    /**
+     * Optional deadline. After it, the campaign stops accepting new posts and
+     * leaves the live list. Posts already submitted keep earning from views
+     * until the budget runs out (they were made under the campaign's terms).
+     */
+    endsAt: { type: Date },
   },
   { timestamps: true },
 );

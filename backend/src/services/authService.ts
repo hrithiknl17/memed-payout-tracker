@@ -62,8 +62,46 @@ export async function login(email: string, password: string): Promise<{ token: s
   return { token: signToken(user), user };
 }
 
-export async function getUser(id: string): Promise<AuthUser> {
+export interface SocialAccount {
+  platform: 'instagram' | 'youtube';
+  handle: string;
+}
+
+export interface Profile extends AuthUser {
+  socials: SocialAccount[];
+  createdAt: string;
+}
+
+function toProfile(doc: {
+  _id: unknown;
+  name: string;
+  email: string;
+  role: Role;
+  socials?: { platform: string; handle: string }[] | null;
+  createdAt: Date;
+}): Profile {
+  return {
+    id: String(doc._id),
+    name: doc.name,
+    email: doc.email,
+    role: doc.role,
+    socials: (doc.socials ?? []).map((s) => ({ platform: s.platform as SocialAccount['platform'], handle: s.handle })),
+    createdAt: doc.createdAt.toISOString(),
+  };
+}
+
+export async function getUser(id: string): Promise<Profile> {
   const doc = await UserModel.findById(id).lean();
   if (!doc) throw HttpError.unauthorized('Account no longer exists');
-  return { id: String(doc._id), name: doc.name, email: doc.email, role: doc.role };
+  return toProfile(doc);
+}
+
+/** Update display name and/or social accounts. Email, password and role are not editable here. */
+export async function updateProfile(
+  id: string,
+  input: { name?: string; socials?: SocialAccount[] },
+): Promise<Profile> {
+  const doc = await UserModel.findByIdAndUpdate(id, { $set: input }, { new: true, runValidators: true }).lean();
+  if (!doc) throw HttpError.unauthorized('Account no longer exists');
+  return toProfile(doc);
 }

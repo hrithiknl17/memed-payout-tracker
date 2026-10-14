@@ -9,6 +9,19 @@ const userSchema = new Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ROLES, required: true },
+    /** Creator social accounts shown on their profile. Display only, not verified. */
+    socials: {
+      type: [
+        new Schema(
+          {
+            platform: { type: String, enum: ['instagram', 'youtube'], required: true },
+            handle: { type: String, required: true, trim: true, maxlength: 60 },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
   },
   { timestamps: true },
 );

@@ -7,6 +7,13 @@ import { UserModel } from '../models/User';
 import { HttpError } from '../utils/httpError';
 import { CACHE_KEYS, cacheDel, cacheGet, cacheSet } from './cache';
 
+/**
+ * `live`: accepting posts and paying out.
+ * `exhausted`: the whole budget has been paid out.
+ * `ended`: past its deadline, so no new posts (earlier posts can still earn).
+ */
+export type CampaignStatus = 'live' | 'exhausted' | 'ended';
+
 export interface CampaignView {
   id: string;
   name: string;
@@ -15,7 +22,10 @@ export interface CampaignView {
   spent: number;
   remaining: number;
   milestones: Milestone[];
-  status: 'live' | 'exhausted';
+  status: CampaignStatus;
+  objective?: string;
+  thumbnailUrl?: string;
+  endsAt?: string;
   createdAt: string;
 }
 
@@ -35,27 +45,46 @@ interface CampaignLike {
   budget: number;
   spent: number;
   milestones: { views: number; payout: number }[];
+  objective?: string | null;
+  thumbnailUrl?: string | null;
+  endsAt?: Date | null;
   createdAt: Date;
 }
 
-export function toCampaignView(c: CampaignLike): CampaignView {
-  const remaining = Math.max(0, c.budget - c.spent);
+export function campaignStatus(c: Pick<CampaignLike, 'budget' | 'spent' | 'endsAt'>, now = new Date()): CampaignStatus {
+  if (c.spent >= c.budget) return 'exhausted';
+  if (c.endsAt && c.endsAt.getTime() <= now.getTime()) return 'ended';
+  return 'live';
+}
+
+export function toCampaignView(c: CampaignLike, now = new Date()): CampaignView {
   return {
     id: String(c._id),
     name: c.name,
     platform: c.platform,
     budget: c.budget,
     spent: c.spent,
-    remaining,
+    remaining: Math.max(0, c.budget - c.spent),
     milestones: c.milestones.map((m) => ({ views: m.views, payout: m.payout })),
-    status: remaining > 0 ? 'live' : 'exhausted',
+    status: campaignStatus(c, now),
+    objective: c.objective || undefined,
+    thumbnailUrl: c.thumbnailUrl || undefined,
+    endsAt: c.endsAt ? c.endsAt.toISOString() : undefined,
     createdAt: c.createdAt.toISOString(),
   };
 }
 
 export async function createCampaign(
   brandId: string,
-  input: { name: string; platform: Platform; budget: number; milestones: Milestone[] },
+  input: {
+    name: string;
+    platform: Platform;
+    budget: number;
+    milestones: Milestone[];
+    objective?: string;
+    thumbnailUrl?: string;
+    endsAt?: string;
+  },
 ): Promise<CampaignView> {
   const errors = validateLadder(input.milestones, input.budget);
   if (errors.length) throw HttpError.badRequest('Invalid milestone ladder', errors);
@@ -67,9 +96,50 @@ export async function createCampaign(
     budget: input.budget,
     spent: 0,
     milestones: normaliseLadder(input.milestones),
+    objective: input.objective || undefined,
+    thumbnailUrl: input.thumbnailUrl || undefined,
+    endsAt: input.endsAt ? new Date(input.endsAt) : undefined,
   });
   await cacheDel(CACHE_KEYS.liveCampaigns);
   return toCampaignView(doc);
+}
+
+/**
+ * Edit presentation fields only. Budget and milestones are deliberately not
+ * editable: changing them after creators have posted would change the terms
+ * those posts were made under, and could break the "never overspend" rule.
+ */
+export async function updateCampaign(
+  brandId: string,
+  campaignId: string,
+  input: { name?: string; objective?: string; thumbnailUrl?: string; endsAt?: string | null },
+): Promise<CampaignView> {
+  const campaign = await getOwnedCampaign(campaignId, brandId);
+
+  const set: Record<string, unknown> = {};
+  const unset: Record<string, ''> = {};
+  if (input.name !== undefined) set.name = input.name;
+  if (input.objective !== undefined) {
+    if (input.objective) set.objective = input.objective;
+    else unset.objective = '';
+  }
+  if (input.thumbnailUrl !== undefined) {
+    if (input.thumbnailUrl) set.thumbnailUrl = input.thumbnailUrl;
+    else unset.thumbnailUrl = '';
+  }
+  if (input.endsAt !== undefined) {
+    if (input.endsAt) set.endsAt = new Date(input.endsAt);
+    else unset.endsAt = '';
+  }
+
+  const updated = await CampaignModel.findByIdAndUpdate(
+    campaign._id,
+    { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+    { new: true },
+  ).lean();
+  if (!updated) throw HttpError.notFound('Campaign not found');
+  await cacheDel(CACHE_KEYS.liveCampaigns);
+  return toCampaignView(updated);
 }
 
 /** A brand's own campaigns with budget spent vs remaining and submission stats. */
@@ -95,29 +165,51 @@ export async function listBrandCampaigns(brandId: string): Promise<BrandCampaign
   });
 }
 
-/**
- * Campaigns creators can still earn from (budget not exhausted).
- * Cached in Redis for a short TTL when REDIS_URL is set; the cache is cleared
- * when a campaign is created or runs out of budget.
- */
-export async function listLiveCampaigns(): Promise<LiveCampaignView[]> {
-  const cached = await cacheGet<LiveCampaignView[]>(CACHE_KEYS.liveCampaigns);
-  if (cached) return cached;
-
-  const campaigns = await CampaignModel.find({ $expr: { $lt: ['$spent', '$budget'] } })
-    .sort({ createdAt: -1 })
-    .limit(200)
-    .lean();
+async function withBrandNames(campaigns: (CampaignLike & { brandId: unknown })[]): Promise<LiveCampaignView[]> {
   const brands = await UserModel.find({ _id: { $in: campaigns.map((c) => c.brandId) } })
     .select('name')
     .lean();
   const brandNames = new Map(brands.map((b) => [String(b._id), b.name]));
-  const views = campaigns.map((c) => ({
+  return campaigns.map((c) => ({
     ...toCampaignView(c),
     brandName: brandNames.get(String(c.brandId)) ?? 'Unknown brand',
   }));
+}
+
+/**
+ * Campaigns creators can still join: budget left and not past their deadline.
+ * Cached in Redis for a short TTL when REDIS_URL is set; the cache is cleared
+ * when a campaign is created, edited, or runs out of budget. Deadlines are
+ * re-checked on every read so a cached list never shows an ended campaign.
+ */
+export async function listLiveCampaigns(): Promise<LiveCampaignView[]> {
+  const stillLive = (list: LiveCampaignView[]) =>
+    list.filter((c) => !c.endsAt || new Date(c.endsAt).getTime() > Date.now());
+
+  const cached = await cacheGet<LiveCampaignView[]>(CACHE_KEYS.liveCampaigns);
+  if (cached) return stillLive(cached);
+
+  const campaigns = await CampaignModel.find({
+    $expr: { $lt: ['$spent', '$budget'] },
+    $or: [{ endsAt: { $exists: false } }, { endsAt: null }, { endsAt: { $gt: new Date() } }],
+  })
+    .sort({ createdAt: -1 })
+    .limit(200)
+    .lean();
+  const views = await withBrandNames(campaigns);
   await cacheSet(CACHE_KEYS.liveCampaigns, views, env.CAMPAIGN_CACHE_TTL_SECONDS);
   return views;
+}
+
+/** Most recent campaigns that are over: budget used up or deadline passed. */
+export async function listEndedCampaigns(limit = 12): Promise<LiveCampaignView[]> {
+  const campaigns = await CampaignModel.find({
+    $or: [{ $expr: { $gte: ['$spent', '$budget'] } }, { endsAt: { $lte: new Date() } }],
+  })
+    .sort({ updatedAt: -1 })
+    .limit(limit)
+    .lean();
+  return withBrandNames(campaigns);
 }
 
 export async function getOwnedCampaign(campaignId: string, brandId: string) {

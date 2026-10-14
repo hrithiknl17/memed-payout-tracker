@@ -214,3 +214,106 @@ describe('views and payouts', () => {
     await request(app).patch(`/api/submissions/${new mongoose.Types.ObjectId()}/views`).send({ views: -1 }).expect(400);
   });
 });
+
+describe('campaign details, deadlines and editing', () => {
+  it('stores objective, thumbnail and deadline, and rejects past deadlines', async () => {
+    const brand = await signup('brand');
+    const endsAt = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    const res = await request(app)
+      .post('/api/campaigns')
+      .set('Authorization', `Bearer ${brand}`)
+      .send({
+        name: 'Snack drop',
+        platform: 'instagram',
+        budget: 10_000,
+        milestones: ladder,
+        objective: 'Post a reel reacting to the new flavour',
+        thumbnailUrl: 'https://images.example.com/cover.jpg',
+        endsAt,
+      })
+      .expect(201);
+    expect(res.body.campaign).toMatchObject({ objective: 'Post a reel reacting to the new flavour', endsAt, status: 'live' });
+
+    await request(app)
+      .post('/api/campaigns')
+      .set('Authorization', `Bearer ${brand}`)
+      .send({ name: 'x', platform: 'instagram', budget: 10_000, milestones: ladder, endsAt: '2020-01-01T00:00:00Z' })
+      .expect(400);
+  });
+
+  it('closes a campaign at its deadline but keeps paying posts made before it', async () => {
+    const brand = await signup('brand');
+    const creator = await signup('creator');
+    const campaignId = await createCampaign(brand, 10_000);
+    const subId = await submit(creator, campaignId, 1);
+
+    // Simulate the deadline passing (the API only accepts future deadlines).
+    await CampaignModel.updateOne({ _id: campaignId }, { $set: { endsAt: new Date(Date.now() - 1000) } });
+
+    const live = await request(app).get('/api/campaigns/live').set('Authorization', `Bearer ${creator}`).expect(200);
+    expect(live.body.campaigns.map((c: { id: string }) => c.id)).not.toContain(campaignId);
+    const ended = await request(app).get('/api/campaigns/ended').set('Authorization', `Bearer ${creator}`).expect(200);
+    expect(ended.body.campaigns.find((c: { id: string }) => c.id === campaignId)).toMatchObject({ status: 'ended' });
+
+    await request(app)
+      .post('/api/submissions')
+      .set('Authorization', `Bearer ${creator}`)
+      .send({ campaignId, postUrl: 'https://www.instagram.com/reel/too-late/' })
+      .expect(409);
+
+    const r = await setViews(subId, 60_000).expect(200);
+    expect(r.body.payout.paidNow).toBe(2_000);
+  });
+
+  it('lets the owning brand edit presentation fields but never budget or milestones', async () => {
+    const brand = await signup('brand');
+    const other = await signup('brand');
+    const campaignId = await createCampaign(brand, 10_000);
+
+    const edited = await request(app)
+      .patch(`/api/campaigns/${campaignId}`)
+      .set('Authorization', `Bearer ${brand}`)
+      .send({ name: 'Renamed', objective: 'New brief', thumbnailUrl: 'https://images.example.com/new.jpg' })
+      .expect(200);
+    expect(edited.body.campaign).toMatchObject({ name: 'Renamed', objective: 'New brief', budget: 10_000 });
+
+    const cleared = await request(app)
+      .patch(`/api/campaigns/${campaignId}`)
+      .set('Authorization', `Bearer ${brand}`)
+      .send({ objective: '', thumbnailUrl: '' })
+      .expect(200);
+    expect(cleared.body.campaign.objective).toBeUndefined();
+    expect(cleared.body.campaign.thumbnailUrl).toBeUndefined();
+
+    await request(app).patch(`/api/campaigns/${campaignId}`).set('Authorization', `Bearer ${brand}`).send({ budget: 99 }).expect(400);
+    await request(app).patch(`/api/campaigns/${campaignId}`).set('Authorization', `Bearer ${other}`).send({ name: 'Mine now' }).expect(403);
+  });
+});
+
+describe('profile and leaderboard', () => {
+  it('saves social accounts on the profile', async () => {
+    const creator = await signup('creator');
+    const res = await request(app)
+      .patch('/api/auth/me')
+      .set('Authorization', `Bearer ${creator}`)
+      .send({ socials: [{ platform: 'instagram', handle: '@memepage' }] })
+      .expect(200);
+    expect(res.body.user.socials).toEqual([{ platform: 'instagram', handle: 'memepage' }]);
+    await request(app).patch('/api/auth/me').set('Authorization', `Bearer ${creator}`).send({ role: 'brand' }).expect(400);
+  });
+
+  it('ranks creators by real payouts and reports total disbursed', async () => {
+    const brand = await signup('brand');
+    const top = await signup('creator');
+    const second = await signup('creator');
+    const campaignId = await createCampaign(brand, 20_000);
+    await setViews(await submit(top, campaignId, 1), 150_000).expect(200); // ₹5,000
+    await setViews(await submit(second, campaignId, 2), 60_000).expect(200); // ₹2,000
+
+    const res = await request(app).get('/api/creators/leaderboard').set('Authorization', `Bearer ${second}`).expect(200);
+    expect(res.body.totalDisbursed).toBe(7_000);
+    expect(res.body.creators.map((c: { earnings: number }) => c.earnings)).toEqual([5_000, 2_000]);
+    expect(res.body.creators[0]).toMatchObject({ rank: 1, platforms: ['instagram'] });
+    expect(res.body.me).toEqual({ rank: 2, earnings: 2_000 });
+  });
+});
