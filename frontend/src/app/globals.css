@@ -1,12 +1,12 @@
 /*
  * meme'd — neo-brutalist payout ledger: thick ink outlines, big hard offset
  * shadows, square corners and loud flat colour blocks (money green, yellow,
- * pink, sky). No gradients, no blur. Every number is set in the mono face.
+ * pink, lilac) on a sky-blue page. No gradients, no blur. Every number is set in the mono face.
  */
 :root {
-  --bg: #f4f1ea;
+  --bg: #b8e4ff;
   --surface: #ffffff;
-  --surface-2: #ebe7dc;
+  --surface-2: #e3f3ff;
   --ink: #111111;
   --muted: #5c5c5c;
   --line: #11111126;
@@ -19,7 +19,7 @@
   /* Flat colour blocks; text on them is always --block-ink. */
   --yellow: #ffd23f;
   --pink: #ff8fc7;
-  --sky: #8fd3ff;
+  --lilac: #c9b6ff;
   --block-ink: #111111;
   --warn: #6b4500;
   --warn-bg: #ffd23f;
@@ -190,7 +190,7 @@ svg { flex-shrink: 0; }
 /* Stat tiles cycle through the colour blocks. */
 .grid-4 > .stat-card:nth-child(1), .grid-2 > .stat-card:nth-child(1) { background: var(--yellow); color: var(--block-ink); }
 .grid-4 > .stat-card:nth-child(3) { background: var(--pink); color: var(--block-ink); }
-.grid-4 > .stat-card:nth-child(4), .grid-2 > .stat-card:nth-child(2) { background: var(--sky); color: var(--block-ink); }
+.grid-4 > .stat-card:nth-child(4), .grid-2 > .stat-card:nth-child(2) { background: var(--lilac); color: var(--block-ink); }
 .grid-4 > .stat-card:not(.accent) .label, .grid-2 > .stat-card .label { color: var(--block-ink); opacity: .75; }
 
 /* ---------- Pills & badges ---------- */
@@ -203,7 +203,7 @@ svg { flex-shrink: 0; }
 .pill.good { border-color: var(--ink); background: var(--highlight); color: var(--highlight-ink); }
 .pill.warn { background: var(--warn-bg); color: var(--block-ink); }
 .pill.bad { background: var(--bad-bg); color: var(--block-ink); }
-.pill.blue { background: var(--sky); color: var(--block-ink); }
+.pill.blue { background: var(--lilac); color: var(--block-ink); }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .preview-badge {
   display: inline-flex; align-items: center; gap: 5px; border: 1.5px dashed var(--muted); border-radius: var(--radius-sm);
