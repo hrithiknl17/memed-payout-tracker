@@ -1,16 +1,54 @@
 'use client';
 
+import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type { Role } from '@/lib/types';
-import { Logo } from './AppShell';
+import { Coin, PixelLogo, PlatformIcon, Thumb } from './brand';
 
 const ROLE_OPTIONS: { id: Role; title: string; blurb: string }[] = [
   { id: 'creator', title: 'Creator', blurb: 'Post for campaigns, earn by views' },
   { id: 'brand', title: 'Brand', blurb: 'Run campaigns with a budget' },
 ];
+
+const TAPE = 'clip → meme → post → earn → '.repeat(8);
+
+/** Decorative collage from the app's onboarding screen. Stock photos, invented campaigns. */
+function HeroArt() {
+  return (
+    <div className="hero-art" aria-hidden="true">
+      <div className="tape one">{TAPE}</div>
+      <div className="tape two">{TAPE}</div>
+      <div className="payout-chip">
+        <small>Your max payout</small>
+        <strong><Coin size={22} /> 15,000</strong>
+      </div>
+      <div className="float-card a">
+        <div className="thumb">
+          <Thumb src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=70" alt="" />
+        </div>
+        <div className="body">
+          <strong>Midnight snack drop</strong>
+          <span className="pill outline small"><PlatformIcon platform="instagram" size={14} /> instagram reels</span>
+        </div>
+      </div>
+      <div className="float-card b">
+        <div className="thumb">
+          <Thumb src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=600&q=70" alt="" />
+        </div>
+        <div className="body">
+          <strong>Outfit math is mathing</strong>
+          <span className="pill outline small"><PlatformIcon platform="youtube" size={14} /> shorts</span>
+        </div>
+      </div>
+      <span className="hero-coin" style={{ top: '8%', left: '2%' }}><Coin size={46} tilt={-20} /></span>
+      <span className="hero-coin" style={{ bottom: '6%', left: '30%' }}><Coin size={54} tilt={16} /></span>
+      <span className="hero-coin" style={{ top: '18%', right: '6%' }}><Coin size={38} tilt={30} /></span>
+    </div>
+  );
+}
 
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const { login, signup } = useAuth();
@@ -18,6 +56,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [agree, setAgree] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -38,43 +77,33 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const isSignup = mode === 'signup';
   return (
     <main className="auth">
-      <section className="auth-art">
-        <Logo />
+      <section className="auth-hero">
+        <PixelLogo size="lg" />
+        <HeroArt />
         <div>
           <h1>
-            Make the internet laugh. <em>Get paid</em> for it.
+            <small>You slay.</small>
+            We&apos;ll <span className="blue">pay.</span>
           </h1>
-          <p>
-            Brands set a budget and a milestone ladder. Creators post, views climb, and payouts land automatically,
-            never past the budget.
-          </p>
-        </div>
-        <div className="auth-ladder" aria-hidden="true">
-          <div>
-            <span>10K views</span>
-            <span>₹500</span>
-          </div>
-          <div>
-            <span>50K views</span>
-            <span>₹2,000</span>
-          </div>
-          <div>
-            <span>100K views</span>
-            <span>₹5,000</span>
-          </div>
+          <p>Participate in campaigns to earn real cash for posting brand-approved content.</p>
         </div>
       </section>
 
-      <section className="auth-form-wrap">
-        <div className="card auth-card">
-          <p className="eyebrow">{isSignup ? "Join Meme'd" : 'Welcome back'}</p>
-          <h2>{isSignup ? 'Create your account' : 'Log in'}</h2>
+      <section className="auth-form-side">
+        <div className="auth-card">
+          <h2>
+            {isSignup ? 'Create your' : 'Welcome'}
+            <span className="blue">{isSignup ? 'account.' : 'back.'}</span>
+          </h2>
+          <p className="muted" style={{ margin: '10px 0 26px' }}>
+            {isSignup ? 'Earn as a creator, or run campaigns as a brand.' : 'Log in to your dashboard.'}
+          </p>
 
-          <form onSubmit={onSubmit} style={{ marginTop: 22 }}>
+          <form onSubmit={onSubmit}>
             {isSignup && (
               <>
                 <div className="field">
-                  <span id="role-label">I am a…</span>
+                  <span className="label" id="role-label">I am a…</span>
                   <div className="role-pick" role="radiogroup" aria-labelledby="role-label">
                     {ROLE_OPTIONS.map((r) => (
                       <button
@@ -102,7 +131,6 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               <label htmlFor="email">Email</label>
               <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
             </div>
-
             <div className="field">
               <label htmlFor="password">Password</label>
               <input
@@ -114,27 +142,30 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
                 minLength={isSignup ? 8 : 1}
                 autoComplete={isSignup ? 'new-password' : 'current-password'}
               />
-              {isSignup && <p className="field-hint">At least 8 characters.</p>}
+              {isSignup && <p className="hint">At least 8 characters.</p>}
             </div>
 
-            <button className="btn btn-primary btn-block" type="submit" disabled={busy} style={{ marginTop: 22 }}>
-              {busy ? 'Please wait…' : isSignup ? 'Create account' : 'Log in'}
-            </button>
-            {error && (
-              <p className="alert error" role="alert">
-                {error}
-              </p>
+            {isSignup && (
+              <label className="check" style={{ marginTop: 18 }}>
+                <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} required />
+                I agree to the terms &amp; privacy policy.
+              </label>
             )}
+
+            <button className="btn btn-primary btn-block" type="submit" disabled={busy} style={{ marginTop: 24, padding: 16, fontSize: 17 }}>
+              {busy ? 'Please wait…' : isSignup ? 'Start earning' : 'Log in'} <ArrowRight size={18} />
+            </button>
+            {error && <p className="alert error" role="alert">{error}</p>}
           </form>
 
-          <p className="auth-switch">
+          <p className="muted" style={{ marginTop: 20 }}>
             {isSignup ? (
               <>
-                Already have an account? <Link href="/login">Log in</Link>
+                Already have an account? <Link href="/login" className="link">Log in</Link>
               </>
             ) : (
               <>
-                New here? <Link href="/signup">Create an account</Link>
+                New here? <Link href="/signup" className="link">Sign up</Link>
               </>
             )}
           </p>

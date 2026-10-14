@@ -1,11 +1,14 @@
 import type {
   BrandCampaign,
   Campaign,
+  CampaignEdit,
+  CampaignInput,
   Earnings,
+  Leaderboard,
   LiveCampaign,
-  Milestone,
-  Platform,
+  Profile,
   Role,
+  SocialAccount,
   Submission,
   User,
   ViewsUpdateResult,
@@ -69,13 +72,19 @@ export const api = {
     request<{ token: string; user: User }>('/api/auth/signup', { method: 'POST', body: json(input) }),
   login: (email: string, password: string) =>
     request<{ token: string; user: User }>('/api/auth/login', { method: 'POST', body: json({ email, password }) }),
-  me: () => request<{ user: User }>('/api/auth/me'),
+  me: () => request<{ user: Profile }>('/api/auth/me'),
+  updateProfile: (input: { name?: string; socials?: SocialAccount[] }) =>
+    request<{ user: Profile }>('/api/auth/me', { method: 'PATCH', body: json(input) }),
 
-  createCampaign: (input: { name: string; platform: Platform; budget: number; milestones: Milestone[] }) =>
+  createCampaign: (input: CampaignInput) =>
     request<{ campaign: Campaign }>('/api/campaigns', { method: 'POST', body: json(input) }),
+  updateCampaign: (id: string, input: CampaignEdit) =>
+    request<{ campaign: Campaign }>(`/api/campaigns/${id}`, { method: 'PATCH', body: json(input) }),
   myCampaigns: () => request<{ campaigns: BrandCampaign[] }>('/api/campaigns/mine'),
   liveCampaigns: () => request<{ campaigns: LiveCampaign[] }>('/api/campaigns/live'),
+  endedCampaigns: () => request<{ campaigns: LiveCampaign[] }>('/api/campaigns/ended'),
   campaignSubmissions: (id: string) => request<{ submissions: Submission[] }>(`/api/campaigns/${id}/submissions`),
+  leaderboard: () => request<Leaderboard>('/api/creators/leaderboard'),
 
   submitPost: (campaignId: string, postUrl: string) =>
     request<{ submission: Submission }>('/api/submissions', { method: 'POST', body: json({ campaignId, postUrl }) }),

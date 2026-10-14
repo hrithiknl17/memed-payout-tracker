@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, tokenStore } from './api';
+import { api, ApiError, tokenStore } from './api';
 import type { Role, User } from './types';
 
 interface AuthState {
@@ -12,6 +12,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   signup: (input: { name: string; email: string; password: string; role: Role }) => Promise<void>;
   logout: () => void;
+  /** Re-fetch the signed-in user, e.g. after editing the profile. */
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -32,7 +34,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     api
       .me()
       .then(({ user }) => setUser(user))
-      .catch(() => tokenStore.clear())
+      // Only a rejected token ends the session; a network blip (e.g. the API waking up) shouldn't log you out.
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) tokenStore.clear();
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -56,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         router.replace('/login');
       },
+      refresh: async () => setUser((await api.me()).user),
     }),
     [user, loading, finish, router],
   );

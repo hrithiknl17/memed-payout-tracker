@@ -1,31 +1,29 @@
-import { Camera, Flag, PlaySquare } from 'lucide-react';
-import { platformLabel, rupees } from '@/lib/format';
+'use client';
+
+import { Flag } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { deadlineLabel, platformLabel, rupees, shortCount, statusLabel } from '@/lib/format';
 import type { BrandCampaign } from '@/lib/types';
-import { BudgetBar } from './BudgetBar';
+import { PlatformIcon, Progress, Thumb } from './brand';
 
-export function PlatformBadge({ platform }: { platform: string }) {
-  const Icon = platform === 'youtube' ? PlaySquare : Camera;
-  return (
-    <span className={`platform-badge ${platform}`} aria-hidden="true">
-      <Icon size={16} />
-    </span>
-  );
+export function StatusPill({ status }: { status: BrandCampaign['status'] }) {
+  const cls = status === 'live' ? 'good' : status === 'ended' ? '' : 'warn';
+  return <span className={`pill ${cls}`}>{statusLabel({ status })}</span>;
 }
 
-export function StatusPill({ status }: { status: 'live' | 'exhausted' }) {
-  return <span className={`pill ${status === 'live' ? 'live' : 'done'}`}>{status === 'live' ? 'Live' : 'Budget used up'}</span>;
-}
+/** A brand's campaigns with budget distributed vs remaining. Rows open the campaign. */
+export function CampaignTable({ campaigns }: { campaigns: BrandCampaign[] }) {
+  const router = useRouter();
+  const open = (id: string) => router.push(`/brand/campaigns/${id}`);
 
-/** A brand's campaigns with budget spent vs remaining. Rows open the campaign. */
-export function CampaignTable({ campaigns, onSelect }: { campaigns: BrandCampaign[]; onSelect: (id: string) => void }) {
   return (
-    <div className="table-wrap">
+    <div className="card table-wrap">
       <table className="data stack">
         <thead>
           <tr>
             <th>Campaign</th>
             <th>Status</th>
-            <th>Budget spent vs remaining</th>
+            <th>Budget distributed</th>
             <th className="num">Posts</th>
           </tr>
         </thead>
@@ -35,31 +33,40 @@ export function CampaignTable({ campaigns, onSelect }: { campaigns: BrandCampaig
               key={c.id}
               className="clickable"
               tabIndex={0}
-              onClick={() => onSelect(c.id)}
+              onClick={() => open(c.id)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  onSelect(c.id);
+                  open(c.id);
                 }
               }}
               aria-label={`Open ${c.name}`}
             >
               <td>
-                <div className="cell-title">
-                  <PlatformBadge platform={c.platform} />
-                  <div>
-                    <strong>{c.name}</strong>
-                    <span>
-                      {platformLabel(c.platform)} · {rupees(c.budget)} budget
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 240 }}>
+                  <div className="mini-thumb">
+                    <Thumb src={c.thumbnailUrl} alt="" mini />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ display: 'block' }}>{c.name}</strong>
+                    <span className="small muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <PlatformIcon platform={c.platform} size={14} /> {platformLabel(c.platform)}
+                      {deadlineLabel(c.endsAt) && c.status === 'live' ? ` · ${deadlineLabel(c.endsAt)}` : ''}
                     </span>
                   </div>
                 </div>
               </td>
-              <td>
+              <td data-label="Status">
                 <StatusPill status={c.status} />
               </td>
-              <td data-label="Budget spent vs remaining">
-                <BudgetBar spent={c.spent} budget={c.budget} />
+              <td data-label="Budget distributed" style={{ minWidth: 220 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 6, fontSize: 13 }}>
+                  <span>
+                    <strong>{shortCount(c.spent)}</strong> <span className="muted">of {shortCount(c.budget)}</span>
+                  </span>
+                  <span className="muted">{rupees(c.remaining)} left</span>
+                </div>
+                <Progress value={c.spent} max={c.budget} label="Budget distributed" />
               </td>
               <td className="num" data-label="Posts">
                 <strong>{c.submissionCount}</strong>

@@ -4,7 +4,7 @@ import type { Submission } from '@/lib/types';
 /** Small badges explaining anything unusual about a submission's payout. */
 export function SubmissionStatus({ s }: { s: Submission }) {
   if (!s.cappedByBudget && !s.flagged) {
-    return s.paidAmount > 0 ? <span className="pill live">Paid</span> : <span className="pill">Below first milestone</span>;
+    return s.paidAmount > 0 ? <span className="pill good">Paid</span> : <span className="pill">Below first milestone</span>;
   }
   return (
     <span className="pills">

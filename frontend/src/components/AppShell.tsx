@@ -1,111 +1,122 @@
 'use client';
 
-import { LogOut, Menu, X, type LucideIcon } from 'lucide-react';
+import {
+  BarChart3,
+  Crown,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Plus,
+  Send,
+  UserRound,
+  Wallet,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
-import { homeFor, useAuth } from '@/lib/auth';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useAuth } from '@/lib/auth';
 import { initials } from '@/lib/format';
-import type { User } from '@/lib/types';
+import type { Role, User } from '@/lib/types';
+import { PixelLogo } from './brand';
 
-export interface NavItem<T extends string> {
-  id: T;
+interface NavItem {
+  href: string;
   label: string;
   icon: LucideIcon;
-  count?: number;
+  /** Also highlight this item for nested routes under these prefixes. */
+  matches?: string[];
 }
 
-export function Logo({ href = '/' }: { href?: string }) {
-  return (
-    <Link href={href} className="logo">
-      <span className="logo-mark" aria-hidden="true">
-        m
-      </span>
-      Meme&apos;d
-    </Link>
-  );
+// Same sections as the mobile app's bottom bar (Home, Participations, Wallet, Profile), plus the leaderboard.
+const NAV: Record<Role, NavItem[]> = {
+  creator: [
+    { href: '/creator', label: 'Home', icon: Home, matches: ['/creator/campaigns'] },
+    { href: '/creator/participations', label: 'Participations', icon: Send },
+    { href: '/creator/wallet', label: 'Wallet', icon: Wallet },
+    { href: '/creator/leaderboard', label: 'Leaderboard', icon: Crown },
+    { href: '/creator/profile', label: 'Profile', icon: UserRound },
+  ],
+  brand: [
+    { href: '/brand', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/brand/campaigns', label: 'Campaigns', icon: BarChart3, matches: ['/brand/campaigns/'] },
+  ],
+};
+
+function isActive(pathname: string, item: NavItem): boolean {
+  if (pathname === item.href) return true;
+  if (item.href !== '/creator' && item.href !== '/brand' && pathname.startsWith(`${item.href}/`)) {
+    return !(item.href === '/brand/campaigns' && pathname === '/brand/campaigns/new');
+  }
+  return (item.matches ?? []).some((m) => pathname.startsWith(m) && pathname !== '/brand/campaigns/new');
 }
 
-/** Sidebar layout shared by the brand and creator workspaces. */
-export function AppShell<T extends string>({
-  user,
-  nav,
-  active,
-  onNavigate,
-  children,
-}: {
-  user: User;
-  nav: NavItem<T>[];
-  active: T;
-  onNavigate: (id: T) => void;
-  children: ReactNode;
-}) {
+/** Desktop sidebar (drawer on phones) shared by both workspaces. */
+export function AppShell({ user, children }: { user: User; children: ReactNode }) {
   const { logout } = useAuth();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const home = homeFor(user.role);
+  const home = user.role === 'brand' ? '/brand' : '/creator';
 
-  const go = (id: T) => {
-    onNavigate(id);
-    setOpen(false);
-    window.scrollTo({ top: 0 });
-  };
+  // Close the phone drawer after navigating.
+  useEffect(() => setOpen(false), [pathname]);
 
   return (
     <div className={`app${open ? ' nav-open' : ''}`}>
       <aside className="sidebar" aria-label="Main navigation">
-        <div className="sidebar-top">
-          <Logo href={home} />
+        <div className="sidebar-head">
+          <PixelLogo href={home} />
           <button className="sidebar-close" onClick={() => setOpen(false)} aria-label="Close menu">
             <X size={22} />
           </button>
         </div>
 
-        <div className="user-chip">
-          <div className="avatar" aria-hidden="true">
-            {initials(user.name)}
-          </div>
-          <div>
-            <strong>{user.name}</strong>
-            <span>{user.role} workspace</span>
-          </div>
-        </div>
-
         <nav className="nav">
-          <p className="nav-kicker">Workspace</p>
-          {nav.map(({ id, label, icon: Icon, count }) => (
-            <button
-              key={id}
-              className={`nav-item${active === id ? ' active' : ''}`}
-              aria-current={active === id ? 'page' : undefined}
-              onClick={() => go(id)}
-            >
-              <Icon size={18} aria-hidden="true" />
-              {label}
-              {count ? <span className="nav-count">{count}</span> : null}
-            </button>
-          ))}
+          <p className="nav-label">{user.role === 'brand' ? 'Brand' : 'Creator'}</p>
+          {NAV[user.role].map((item) => {
+            const active = isActive(pathname, item);
+            const Icon = item.icon;
+            return (
+              <Link key={item.href} href={item.href} className={`nav-link${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined}>
+                <Icon size={20} aria-hidden="true" />
+                {item.label}
+              </Link>
+            );
+          })}
+          {user.role === 'brand' && (
+            <Link href="/brand/campaigns/new" className="btn btn-primary nav-cta">
+              <Plus size={18} /> New campaign
+            </Link>
+          )}
         </nav>
 
-        <div className="sidebar-bottom">
-          <button className="nav-item" onClick={logout}>
-            <LogOut size={18} aria-hidden="true" />
-            Log out
+        <div className="sidebar-foot">
+          <div className="user-chip">
+            <span className="avatar" aria-hidden="true">
+              {initials(user.name)}
+            </span>
+            <div>
+              <strong>{user.name}</strong>
+              <span>{user.role}</span>
+            </div>
+          </div>
+          <button className="logout" onClick={logout}>
+            <LogOut size={17} aria-hidden="true" /> Log out
           </button>
-          <p className="sidebar-note">
-            <span className="live-dot" aria-hidden="true" />
-            Payouts land the moment a post crosses a milestone.
-          </p>
         </div>
       </aside>
 
       <div className="scrim" onClick={() => setOpen(false)} aria-hidden="true" />
 
       <div className="main">
-        <div className="mobile-bar">
-          <button className="icon-btn" onClick={() => setOpen(true)} aria-label="Open menu">
-            <Menu size={18} />
+        <header className="topbar-mobile">
+          <PixelLogo href={home} size="sm" />
+          <button className="menu-btn" onClick={() => setOpen(true)} aria-label="Open menu">
+            <Menu size={20} />
           </button>
-          <Logo href={home} />
-        </div>
+        </header>
         {children}
       </div>
     </div>
