@@ -1,19 +1,33 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { ArrowUpRight, Compass, Home, LayoutGrid, RefreshCw, Wallet } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AppShell, type NavItem } from '@/components/AppShell';
 import { LiveCampaignCard } from '@/components/LiveCampaignCard';
 import { MySubmissions } from '@/components/MySubmissions';
+import { NextMilestoneCard } from '@/components/NextMilestoneCard';
 import { api, ApiError } from '@/lib/api';
 import { useRequireRole } from '@/lib/auth';
-import { rupees } from '@/lib/format';
-import type { Campaign, Earnings, Submission } from '@/lib/types';
+import { greeting, rupees } from '@/lib/format';
+import type { Campaign, Earnings, LiveCampaign, Submission } from '@/lib/types';
+
+type View = 'overview' | 'discover' | 'posts';
+
+const HEADINGS: Record<Exclude<View, 'overview'>, { title: string; subtitle: string }> = {
+  discover: { title: 'Campaigns you can join', subtitle: 'Every campaign that still has budget. Post, submit the link, get paid by views.' },
+  posts: {
+    title: 'Your posts',
+    subtitle: 'Use "Set views" to simulate the platform reporting new view counts. Payouts update instantly.',
+  },
+};
 
 export default function CreatorPage() {
   const user = useRequireRole('creator');
-  const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
+  const [campaigns, setCampaigns] = useState<LiveCampaign[] | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<View>('overview');
 
   const loadMine = useCallback(async () => {
     const mine = await api.mySubmissions();
@@ -35,51 +49,138 @@ export default function CreatorPage() {
     if (user) void loadAll();
   }, [user, loadAll]);
 
-  if (!user) return <p className="muted">Loading…</p>;
+  const campaignsById = useMemo(() => new Map<string, Campaign>((campaigns ?? []).map((c) => [c.id, c])), [campaigns]);
 
-  const refreshMine = () => void loadMine().catch(() => undefined);
+  if (!user) return <p className="loading">Loading…</p>;
+
+  // A new payout can exhaust a campaign, so refresh the live list too.
+  const refresh = () => void loadAll();
+  const live = campaigns ?? [];
+
+  const nav: NavItem<View>[] = [
+    { id: 'overview', label: 'Overview', icon: Home },
+    { id: 'discover', label: 'Discover campaigns', icon: Compass, count: live.length },
+    { id: 'posts', label: 'My posts', icon: LayoutGrid, count: submissions.length },
+  ];
+
+  const campaignGrid = (items: LiveCampaign[]) =>
+    campaigns === null && !error ? (
+      <p className="muted">Loading campaigns…</p>
+    ) : items.length === 0 ? (
+      <div className="card empty">
+        <Compass size={26} color="var(--coral)" aria-hidden="true" />
+        <strong>No live campaigns right now</strong>
+        <span>Check back soon. Brands add new briefs all the time.</span>
+      </div>
+    ) : (
+      <div className="campaign-grid">
+        {items.map((c) => (
+          <LiveCampaignCard key={c.id} campaign={c} onSubmitted={refresh} />
+        ))}
+      </div>
+    );
+
+  const firstName = user.name.split(/\s+/)[0];
 
   return (
-    <main>
-      <h1>Creator dashboard</h1>
-      <p className="sub">Submit posts to live campaigns and get paid as your views climb.</p>
-
-      <div className="stats">
-        <div className="stat">
-          <div className="stat-label">Total earnings</div>
-          <div className="stat-value">{rupees(earnings?.totalEarnings ?? 0)}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Posts submitted</div>
-          <div className="stat-value">{earnings?.submissionCount ?? 0}</div>
-        </div>
-        {!!earnings?.unpaidDueToBudget && (
-          <div className="stat" title="Earned by milestones but not paid because a campaign ran out of budget">
-            <div className="stat-label">Unpaid (budget out)</div>
-            <div className="stat-value" style={{ color: 'var(--warn)' }}>
-              {rupees(earnings.unpaidDueToBudget)}
-            </div>
+    <AppShell user={user} nav={nav} active={view} onNavigate={setView}>
+      <div className="page">
+        <div className="page-head">
+          <div>
+            <p className="eyebrow">Creator workspace</p>
+            <h1>
+              {view === 'overview' ? (
+                <>
+                  {greeting()}, {firstName} <em>✦</em>
+                </>
+              ) : (
+                HEADINGS[view].title
+              )}
+            </h1>
+            <p className="subtitle">
+              {view === 'overview' ? 'Submit posts to live campaigns and get paid as your views climb.' : HEADINGS[view].subtitle}
+            </p>
           </div>
-        )}
-      </div>
-
-      {error && <p className="error">{error}</p>}
-
-      <div className="grid grid-2">
-        <section>
-          <div className="row" style={{ marginBottom: 8 }}>
-            <h2 style={{ margin: 0 }}>Live campaigns</h2>
-            <button className="secondary shrink" onClick={() => void loadAll()}>
-              Refresh
+          <div className="head-actions">
+            <button className="btn btn-ghost" onClick={refresh}>
+              <RefreshCw size={15} /> Refresh
             </button>
           </div>
-          {campaigns?.length === 0 && <div className="card empty">No live campaigns right now.</div>}
-          {campaigns?.map((c) => <LiveCampaignCard key={c.id} campaign={c} onSubmitted={refreshMine} />)}
-        </section>
-        <section>
-          <MySubmissions submissions={submissions} onChanged={refreshMine} />
-        </section>
+        </div>
+
+        {error && (
+          <p className="alert error" role="alert">
+            {error}
+          </p>
+        )}
+
+        {view === 'overview' && (
+          <>
+            <div className="hero-grid">
+              <div className="card balance-card bg-lavender dots">
+                <div className="milestone-top">
+                  <div>
+                    <p className="balance-label">Total earnings</p>
+                    <p className="balance-amount">{rupees(earnings?.totalEarnings ?? 0)}</p>
+                  </div>
+                  <span className="wallet-icon" aria-hidden="true">
+                    <Wallet size={20} />
+                  </span>
+                </div>
+                <div className="balance-foot">
+                  <span>
+                    {earnings?.submissionCount ?? 0} post{earnings?.submissionCount === 1 ? '' : 's'} submitted
+                  </span>
+                  {!!earnings?.unpaidDueToBudget && (
+                    <span className="pill warn" title="Earned by milestones but not paid because a campaign ran out of budget">
+                      {rupees(earnings.unpaidDueToBudget)} unpaid · budget out
+                    </span>
+                  )}
+                </div>
+              </div>
+              <NextMilestoneCard submissions={submissions} campaigns={campaignsById} />
+            </div>
+
+            <section className="section">
+              <div className="section-head">
+                <div>
+                  <p className="kicker">Open calls · live</p>
+                  <h2>Campaigns you might like</h2>
+                </div>
+                {live.length > 3 && (
+                  <button className="link-btn" onClick={() => setView('discover')}>
+                    See all {live.length} campaigns <ArrowUpRight size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              {campaignGrid(live.slice(0, 3))}
+            </section>
+
+            <section className="section">
+              <div className="section-head">
+                <div>
+                  <p className="kicker">Your work</p>
+                  <h2>Recent posts</h2>
+                </div>
+                {submissions.length > 4 && (
+                  <button className="link-btn" onClick={() => setView('posts')}>
+                    View all posts <ArrowUpRight size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              <MySubmissions submissions={submissions} onChanged={refresh} limit={4} />
+            </section>
+          </>
+        )}
+
+        {view === 'discover' && <section className="section">{campaignGrid(live)}</section>}
+
+        {view === 'posts' && (
+          <section className="section">
+            <MySubmissions submissions={submissions} onChanged={refresh} />
+          </section>
+        )}
       </div>
-    </main>
+    </AppShell>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowUpRight, LayoutGrid } from 'lucide-react';
 import { useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { count, rupees, timeAgo } from '@/lib/format';
@@ -10,29 +11,37 @@ import { SubmissionStatus } from './SubmissionStatus';
  * The creator's posts. Each row has a small "simulate views" control that
  * calls PATCH /api/submissions/:id/views — standing in for real platform data.
  */
-export function MySubmissions({ submissions, onChanged }: { submissions: Submission[]; onChanged: () => void }) {
+export function MySubmissions({
+  submissions,
+  onChanged,
+  limit,
+}: {
+  submissions: Submission[];
+  onChanged: () => void;
+  limit?: number;
+}) {
   if (submissions.length === 0) {
-    return <div className="card empty">No posts yet. Pick a campaign and submit a link.</div>;
+    return (
+      <div className="card empty">
+        <LayoutGrid size={26} color="var(--coral)" aria-hidden="true" />
+        <strong>No posts yet</strong>
+        <span>Pick a live campaign and submit a link to your post.</span>
+      </div>
+    );
   }
+  const shown = limit ? submissions.slice(0, limit) : submissions;
   return (
-    <div className="card">
-      <h2>Your posts</h2>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Post</th>
-              <th className="num">Views</th>
-              <th className="num">Earned</th>
-              <th>Simulate platform views</th>
-            </tr>
-          </thead>
-          <tbody>
-            {submissions.map((s) => (
-              <SubmissionRow key={s.id} s={s} onChanged={onChanged} />
-            ))}
-          </tbody>
-        </table>
+    <div className="card" style={{ overflow: 'hidden' }}>
+      <div className="post-list">
+        <div className="post-row head" aria-hidden="true">
+          <span>Post</span>
+          <span>Views</span>
+          <span>Earned</span>
+          <span className="simulate-head">Simulate platform views</span>
+        </div>
+        {shown.map((s) => (
+          <SubmissionRow key={s.id} s={s} onChanged={onChanged} />
+        ))}
       </div>
     </div>
   );
@@ -60,36 +69,50 @@ function SubmissionRow({ s, onChanged }: { s: Submission; onChanged: () => void 
     }
   }
 
+  const campaign = s.campaignName ?? 'Campaign';
   return (
-    <tr>
-      <td>
-        <strong>{s.campaignName ?? 'Campaign'}</strong>
-        <a className="url small muted" href={s.postUrl} target="_blank" rel="noreferrer">
-          {s.postUrl.replace(/^https:\/\//, '')}
+    <div className="post-row">
+      <div className="post-main">
+        <strong>{campaign}</strong>
+        <a className="url" href={s.postUrl} target="_blank" rel="noreferrer">
+          {s.postUrl.replace(/^https:\/\//, '')} <ArrowUpRight size={11} aria-hidden="true" />
         </a>
         <SubmissionStatus s={s} />
-      </td>
-      <td className="num">
-        {count(s.views)}
-        <div className="small muted">{timeAgo(s.viewsUpdatedAt)}</div>
-      </td>
-      <td className="num">{rupees(s.paidAmount)}</td>
-      <td>
-        <div className="row" style={{ minWidth: 200 }}>
+      </div>
+      <div className="post-figure">
+        <strong>{count(s.views)}</strong>
+        <small>views · {timeAgo(s.viewsUpdatedAt)}</small>
+      </div>
+      <div className="post-figure">
+        <strong style={{ color: 'var(--good)' }}>{rupees(s.paidAmount)}</strong>
+        <small>{s.entitledAmount > s.paidAmount ? `paid of ${rupees(s.entitledAmount)} earned` : 'paid'}</small>
+      </div>
+      <form
+        className="simulate"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void update();
+        }}
+      >
+        <div className="simulate-row">
           <input
             type="number"
             min={0}
             step={1}
             value={views}
             onChange={(e) => setViews(e.target.value)}
-            aria-label="New view count"
+            aria-label={`New view count for ${campaign}`}
           />
-          <button className="secondary shrink" onClick={update} disabled={busy || views === ''}>
-            {busy ? '…' : 'Set'}
+          <button className="btn btn-ghost btn-sm" type="submit" disabled={busy || views === ''}>
+            {busy ? '…' : 'Set views'}
           </button>
         </div>
-        {msg && <div className={`small ${msg.ok ? 'success' : 'error'}`}>{msg.text}</div>}
-      </td>
-    </tr>
+        {msg && (
+          <span className={`inline-msg ${msg.ok ? 'success' : 'error'}`} role="status">
+            {msg.text}
+          </span>
+        )}
+      </form>
+    </div>
   );
 }
