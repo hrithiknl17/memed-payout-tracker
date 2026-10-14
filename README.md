@@ -4,7 +4,10 @@ Brands create campaigns with a **budget** and a **milestone ladder**. Creators s
 
 > **Views in. Payouts out.**
 
-- **Live app:** not deployed yet — see [Deployment](#deployment)
+- **Live app:** https://memed-payout-tracker-mu.vercel.app
+- **Live API:** https://memed-payout-tracker-0ipw.onrender.com (health check: [`/health`](https://memed-payout-tracker-0ipw.onrender.com/health))
+
+> The API runs on Render's free plan, which sleeps when idle: the first request after a while can take ~30–50 s.
 - **Repo layout:** `backend/` (API) and `frontend/` (web)
 
 ## Highlights
