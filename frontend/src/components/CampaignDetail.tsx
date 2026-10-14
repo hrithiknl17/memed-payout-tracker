@@ -111,7 +111,7 @@ export function CampaignDetail({ campaign, onBack, onRefresh }: { campaign: Bran
         )}
         {subs && subs.length > 0 && (
           <div className="table-wrap">
-            <table className="data">
+            <table className="data stack">
               <thead>
                 <tr>
                   <th>Creator / post</th>
@@ -137,15 +137,17 @@ export function CampaignDetail({ campaign, onBack, onRefresh }: { campaign: Bran
                         </div>
                       </div>
                     </td>
-                    <td className="num">
+                    <td className="num" data-label="Views">
                       <strong>{count(s.views)}</strong>
                       <div className="small muted">{timeAgo(s.viewsUpdatedAt)}</div>
                     </td>
-                    <td className="num">{rupees(s.entitledAmount)}</td>
-                    <td className="num">
+                    <td className="num" data-label="Earned">
+                      {rupees(s.entitledAmount)}
+                    </td>
+                    <td className="num" data-label="Paid">
                       <strong style={{ color: 'var(--good)' }}>{rupees(s.paidAmount)}</strong>
                     </td>
-                    <td>
+                    <td data-label="Notes">
                       <SubmissionStatus s={s} />
                     </td>
                   </tr>

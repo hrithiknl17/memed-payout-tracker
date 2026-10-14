@@ -63,7 +63,8 @@ export default function CreatorPage() {
     { id: 'posts', label: 'My posts', icon: LayoutGrid, count: submissions.length },
   ];
 
-  const campaignGrid = (items: LiveCampaign[]) =>
+  // `fill` stretches a short preview row across the page instead of leaving a gap.
+  const campaignGrid = (items: LiveCampaign[], fill = false) =>
     campaigns === null && !error ? (
       <p className="muted">Loading campaigns…</p>
     ) : items.length === 0 ? (
@@ -73,7 +74,7 @@ export default function CreatorPage() {
         <span>Check back soon. Brands add new briefs all the time.</span>
       </div>
     ) : (
-      <div className="campaign-grid">
+      <div className={`campaign-grid${fill ? ' fill' : ''}`}>
         {items.map((c) => (
           <LiveCampaignCard key={c.id} campaign={c} onSubmitted={refresh} />
         ))}
@@ -153,7 +154,7 @@ export default function CreatorPage() {
                   </button>
                 )}
               </div>
-              {campaignGrid(live.slice(0, 3))}
+              {campaignGrid(live.slice(0, 3), true)}
             </section>
 
             <section className="section">

@@ -20,7 +20,7 @@ export function StatusPill({ status }: { status: 'live' | 'exhausted' }) {
 export function CampaignTable({ campaigns, onSelect }: { campaigns: BrandCampaign[]; onSelect: (id: string) => void }) {
   return (
     <div className="table-wrap">
-      <table className="data">
+      <table className="data stack">
         <thead>
           <tr>
             <th>Campaign</th>
@@ -58,10 +58,10 @@ export function CampaignTable({ campaigns, onSelect }: { campaigns: BrandCampaig
               <td>
                 <StatusPill status={c.status} />
               </td>
-              <td>
+              <td data-label="Budget spent vs remaining">
                 <BudgetBar spent={c.spent} budget={c.budget} />
               </td>
-              <td className="num">
+              <td className="num" data-label="Posts">
                 <strong>{c.submissionCount}</strong>
                 {c.flaggedCount > 0 && (
                   <div className="small" style={{ color: 'var(--bad)' }}>
